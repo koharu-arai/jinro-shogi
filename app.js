@@ -32,11 +32,21 @@ function buildBoard(setups){
   });
   return b;
 }
-const DEFAULT_RULES={time:0,drops:false};
+const DEFAULT_RULES={time:0,drops:false,promote:false,reveal:false,try:true};
 const TIME_OPTS=[[0,'なし'],[60,'1分'],[180,'3分'],[300,'5分']];
-const rulesOf=G=>({time:G?.rules?.time??MAIN,drops:G?.rules?.drops??true});
-function rulesText(r){const t=r.time?((TIME_OPTS.find(x=>x[0]===r.time)||[0,Math.round(r.time/60)+'分'])[1]):'なし';return`持ち時間 ${t}・持ち駒 ${r.drops?'あり':'なし'}`}
-function newGame(setups,rules){const r=rules||DEFAULT_RULES;return{board:buildBoard(setups),hands:[[],[]],turn:0,last:null,rules:{time:r.time,drops:r.drops},time:[r.time,r.time],winner:null,reason:''}}
+const TOGGLES=[
+  ['drops','持ち駒','取った駒を空いているマスに打てる'],
+  ['promote','村人の成り','村人が相手の一番奥の段に着くと騎士になる'],
+  ['reveal','取った駒の正体','相手の駒を取った駒は、正体が相手に公開される'],
+  ['try','トライ勝ち','王様が相手の一番奥の段に着いたら勝ち(次の手で取られる位置なら無効)']
+];
+const rulesOf=G=>{const r=G?.rules||{};return{time:r.time??MAIN,drops:r.drops??true,promote:!!r.promote,reveal:!!r.reveal,try:!!r.try}};
+function rulesText(r){
+  const t=r.time?((TIME_OPTS.find(x=>x[0]===r.time)||[0,Math.round(r.time/60)+'分'])[1]):'なし';
+  const extra=[r.promote&&'村人の成り',r.reveal&&'正体公開',r.try&&'トライ勝ち'].filter(Boolean);
+  return`持ち時間 ${t}・持ち駒 ${r.drops?'あり':'なし'}${extra.length?'・'+extra.join('・'):''}`;
+}
+function newGame(setups,rules){const r={...DEFAULT_RULES,...(rules||{})};return{board:buildBoard(setups),hands:[[],[]],turn:0,last:null,rules:r,time:[r.time,r.time],winner:null,reason:''}}
 function targets(G,r,c){
   const P=G.board[r][c],out=[],s=P.owner===0?1:-1;
   for(const[dy,dx]of T[P.type].m){
@@ -49,17 +59,33 @@ function targets(G,r,c){
   }
   return out;
 }
-function applyMove(G,r,c,nr,nc){
-  const B=G.board,A=B[r][c],Q=B[nr][nc],me=A.owner,op=1-me;
-  if(!Q){B[nr][nc]=A;B[r][c]=null;G.last={from:[r,c],to:[nr,nc],kind:'move'};return{res:'駒を動かしました。',note:'相手が駒を動かしました。'}}
-  if(Q.type==='wolf'&&!Q.revealed&&A.type!=='seer'){
-    B[r][c]=null;Q.revealed=true;if(rulesOf(G).drops)G.hands[op].push(A.type);G.last={from:[r,c],to:[nr,nc],kind:'counter'};
-    if(A.type==='king'){G.winner=op;G.reason='王様が隠れた人狼に返り討ちにされました'}
-    return{res:`返り討ち！ その駒は隠れた人狼でした。あなたの${T[A.type].nm}は${rulesOf(G).drops?'相手の持ち駒になります':'盤から取り除かれました'}。`,note:`あなたの人狼が相手の${T[A.type].nm}を返り討ちにしました。人狼の正体が相手に知られました。`,alert:true,bad:true};
+const baseType=P=>P.promoted?'villager':P.type;   // a promoted villager goes back to a villager when captured
+const backRow=owner=>owner===0?0:4;
+function attacked(G,r,c,by){
+  for(let y=0;y<5;y++)for(let x=0;x<3;x++){const P=G.board[y][x];if(P&&P.owner===by&&targets(G,y,x).some(([a,b])=>a===r&&b===c))return true}
+  return false;
+}
+function afterMove(G,A,nr,nc,out){
+  const R=rulesOf(G),me=A.owner;
+  if(R.promote&&A.type==='villager'&&nr===backRow(me)){A.type='knight';A.promoted=true;out.res+=' 村人が奥まで進み、騎士になりました。'}
+  if(G.winner==null&&R.try&&A.type==='king'&&nr===backRow(me)){
+    if(!attacked(G,nr,nc,1-me)){G.winner=me;G.reason='トライ成功。王様が相手の陣地の一番奥にたどり着きました'}
+    else out.res+=' 王様が奥の段に着きましたが、取られる位置なのでトライにはなりません。';
   }
-  B[nr][nc]=A;B[r][c]=null;if(rulesOf(G).drops)G.hands[me].push(Q.type);G.last={from:[r,c],to:[nr,nc],kind:'capture'};
+  return out;
+}
+function applyMove(G,r,c,nr,nc){
+  const B=G.board,A=B[r][c],Q=B[nr][nc],me=A.owner,op=1-me,R=rulesOf(G);
+  if(!Q){B[nr][nc]=A;B[r][c]=null;G.last={from:[r,c],to:[nr,nc],kind:'move'};return afterMove(G,A,nr,nc,{res:'駒を動かしました。',note:'相手が駒を動かしました。'})}
+  if(Q.type==='wolf'&&!Q.revealed&&A.type!=='seer'){
+    B[r][c]=null;Q.revealed=true;if(R.drops)G.hands[op].push(baseType(A));G.last={from:[r,c],to:[nr,nc],kind:'counter'};
+    if(A.type==='king'){G.winner=op;G.reason='王様が隠れた人狼に返り討ちにされました'}
+    return{res:`返り討ち！ その駒は隠れた人狼でした。あなたの${T[A.type].nm}は${R.drops?'相手の持ち駒になります':'盤から取り除かれました'}。`,note:`あなたの人狼が相手の${T[A.type].nm}を返り討ちにしました。人狼の正体が相手に知られました。`,alert:true,bad:true};
+  }
+  B[nr][nc]=A;B[r][c]=null;if(R.drops)G.hands[me].push(baseType(Q));G.last={from:[r,c],to:[nr,nc],kind:'capture'};
+  if(R.reveal)A.shown=true;
   if(Q.type==='king'){G.winner=me;G.reason='王様を取りました'}
-  return{res:`相手の${T[Q.type].nm}を取りました。${rulesOf(G).drops?'持ち駒として打てます。':''}`,note:`あなたの${T[Q.type].nm}が取られました。`,alert:true};
+  return afterMove(G,A,nr,nc,{res:`相手の${T[Q.type].nm}を取りました。${R.drops?'持ち駒として打てます。':''}${R.reveal?'この駒の正体は相手に公開されました。':''}`,note:`あなたの${T[Q.type].nm}が取られました。${R.reveal?`取った駒は${T[A.type].nm}です。`:''}`,alert:true});
 }
 function applyDrop(G,i,r,c){
   const me=G.turn,t=G.hands[me].splice(i,1)[0];
@@ -116,7 +142,7 @@ function boardHTML(G,v,{sel=null,interactive=false,reveal=false}={}){
     if(tg.has(r+','+c))cls+=' tgt'+(P?' hasp':'');
     let inner='';
     if(P){
-      const mine=P.owner===v,vis=mine||reveal||(P.type==='wolf'&&P.revealed);
+      const mine=P.owner===v,vis=mine||reveal||P.shown||(P.type==='wolf'&&P.revealed);
       inner=vis?tile(P.type,{enemy:!mine,wolf:P.revealed?'open':'hid'}):tile(null,{hidden:true});
     }
     h+=`<button class="${cls}" data-act="cell" data-r="${dr}" data-c="${dc}" ${interactive?'':'tabindex="-1"'} aria-label="${dr+1}段目 ${dc+1}列目">${inner}</button>`;
@@ -128,8 +154,8 @@ function rulesCard(r,editable){
   const chip=(act,val,label,on)=>`<button class="chip${on?' on':''}" data-act="${act}" data-v="${val}" aria-pressed="${on}">${label}</button>`;
   return`<div class="card rulesbox"><b>部屋のルール</b>
     <div class="ruleline"><span class="muted">持ち時間</span><div class="row">${TIME_OPTS.map(([v,l])=>chip('setTime',v,l,r.time===v)).join('')}</div></div>
-    <div class="ruleline"><span class="muted">持ち駒</span><div class="row">${chip('setDrops',1,'あり',r.drops)}${chip('setDrops',0,'なし',!r.drops)}</div></div>
-    <p class="muted">${r.drops?'取った駒は持ち駒になり、空いているマスに打てます。':'取った駒は盤から消えます。'}${r.time?'持ち時間を使い切ると1手10秒の秒読みです。':'時間制限なしで考えられます。'}</p></div>`;
+    ${TOGGLES.map(([k,label,desc])=>`<div class="ruleline"><span class="muted">${label}</span><div class="row">${chip('setRule',k+':1',k==='reveal'?'公開':'あり',r[k])}${chip('setRule',k+':0',k==='reveal'?'しない':'なし',!r[k])}</div><span class="ruledesc">${desc}</span></div>`).join('')}
+    <p class="muted">${r.time?'持ち時間を使い切ると1手10秒の秒読みです。':'時間制限なしで考えられます。'}</p></div>`;
 }
 function handHTML(G,v,sel,enabled){
   if(!rulesOf(G).drops)return'';
@@ -158,7 +184,7 @@ function rulesHTML(open=false){
     <li>対局前に手前2段へ6枚を自由に配置します。相手の駒は灰色で正体が見えません。</li>
     <li><b>隠れた人狼</b>(ピンク)は駒を取れません。占い師以外の駒が取りに来ると<b>返り討ち</b>にして、その駒を奪います。返り討ちにした人狼は正体が明かされ(青)、普通に取ったり取られたりします。</li>
     <li>持ち駒ありのときは、取った駒を空いているマスに打てます。打った駒は相手から見えず、打った人狼は隠れた状態に戻ります。持ち駒なしのときは、取った駒は盤から消えます。</li>
-    <li>持ち時間と持ち駒のあり・なしは、部屋を作った人が対局前に決めます。持ち時間を使い切ると1手10秒の秒読みで、間に合わなければ負けです。</li>
+    <li>持ち時間・持ち駒・村人の成り・取った駒の正体公開・トライ勝ちは、部屋を作った人が対局前に決めます。持ち時間を使い切ると1手10秒の秒読みで、間に合わなければ負けです。</li><li><b>村人の成り</b>:村人が相手の一番奥の段に着くと騎士になります。取られると村人に戻ります。</li><li><b>トライ勝ち</b>:王様が相手の一番奥の段に着き、次の手で取られない位置なら勝ちです。</li>
   </ul>
   <div class="ptable">${ORDER.map(t=>`<div class="prow">${tile(t)}<div><b>${T[t].nm}</b><span class="d">${T[t].d}</span></div></div>`).join('')}</div></details>`;
 }
@@ -199,7 +225,7 @@ function renderLocal(){
 function localAct(a,el){
   if(a!=='resign')L.resignArm=false;
   if(a==='setTime'){L.rules.time=+el.dataset.v}
-  else if(a==='setDrops'){L.rules.drops=el.dataset.v==='1'}
+  else if(a==='setRule'){const [k,v]=el.dataset.v.split(':');L.rules[k]=v==='1'}
   else if(a==='localStart'){L.phase='cover';L.cover={p:0,next:'setup'}}
   else if(a==='uncover'){L.phase=L.cover.next;L.sel=null;lastT=null}
   else if(a==='swap'){const i=+el.dataset.i,ar=L.setup[L.setupP];if(L.sel&&L.sel.i!=null){[ar[L.sel.i],ar[i]]=[ar[i],ar[L.sel.i]];L.sel=null}else L.sel={i}}
@@ -277,7 +303,7 @@ async function onlineInit(){
 }
 function genCode(){const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<4;i++)s+=A[Math.floor(Math.random()*A.length)];return s}
 function errText(e){console.error(e);return'通信できませんでした。電波の良いところで、もう一度試してください。'}
-function blankGame(code,moveNo,rules){const r=rules||DEFAULT_RULES;return{code,phase:'setup',moveNo,board:null,hands:[[],[]],turn:0,rules:{time:r.time,drops:r.drops},time:[r.time,r.time],last:null,note:null,winner:null,reason:''}}
+function blankGame(code,moveNo,rules){const r={...DEFAULT_RULES,...(rules||{})};return{code,phase:'setup',moveNo,board:null,hands:[[],[]],turn:0,rules:r,time:[r.time,r.time],last:null,note:null,winner:null,reason:''}}
 function roomLink(code){return location.origin+location.pathname+'?room='+code}
 
 async function createRoom(){
@@ -462,9 +488,9 @@ async function onlineAct(a,el){
   if(a==='leave'){leaveRoom();return}
   if(a==='copy')return copyText(O.code,el);
   if(a==='copyLink')return copyText(roomLink(O.code),el);
-  if(a==='setTime'||a==='setDrops'){
+  if(a==='setTime'||a==='setRule'){
     const g=O.game;if(!g||g.phase!=='setup'||O.seat!==0)return;
-    const r=rulesOf(g);if(a==='setTime')r.time=+el.dataset.v;else r.drops=el.dataset.v==='1';
+    const r=rulesOf(g);if(a==='setTime')r.time=+el.dataset.v;else{const [k,v]=el.dataset.v.split(':');r[k]=v==='1'}
     await saveGame({...clone(g),rules:r,time:[r.time,r.time]});render();return;
   }
   if(a==='swap'){const i=+el.dataset.i,ar=O.draft;if(O.sel&&O.sel.i!=null){[ar[O.sel.i],ar[i]]=[ar[i],ar[O.sel.i]];O.sel=null}else O.sel={i}}
