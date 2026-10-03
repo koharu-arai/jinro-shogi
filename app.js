@@ -194,7 +194,7 @@ async function onlineInit(){
   if(O.ready)return;O.ready=true;O.uid=getUid();
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY){O.noConfig=true;render();return}
   try{
-    const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
+    const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
     sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
   }catch(e){O.loadFail=true}
   render();
@@ -212,11 +212,11 @@ async function createRoom(){
     let code=null;
     for(let k=0;k<6&&!code;k++){
       const c=genCode();
-      const {error}=await sb.from('rooms').insert({code:c,game:blankGame(c,0)});
+      const {error}=await sb.from('jinro_rooms').insert({code:c,game:blankGame(c,0)});
       if(!error)code=c;else if(error.code!=='23505')throw error;
     }
     if(!code)throw new Error('no code');
-    const {error}=await sb.from('seats').insert({code,seat:0,uid:O.uid});
+    const {error}=await sb.from('jinro_seats').insert({code,seat:0,uid:O.uid});
     if(error)throw error;
     await enterRoom(code,0);
   }catch(e){O.err=errText(e)}
@@ -227,18 +227,18 @@ async function joinRoom(raw){
   if(!/^[A-Z0-9]{4}$/.test(code)){O.err='4文字の部屋コードを入力してください。';render();return}
   O.err='';O.busy=true;render();
   try{
-    const {data:room,error}=await sb.from('rooms').select('code').eq('code',code).maybeSingle();
+    const {data:room,error}=await sb.from('jinro_rooms').select('code').eq('code',code).maybeSingle();
     if(error)throw error;
     if(!room){O.err=`部屋「${code}」が見つかりません。コードを確認してください。`}
     else{
-      const {data:seats,error:e2}=await sb.from('seats').select('seat,uid').eq('code',code);
+      const {data:seats,error:e2}=await sb.from('jinro_seats').select('seat,uid').eq('code',code);
       if(e2)throw e2;
       const s0=seats.find(s=>s.seat===0),s1=seats.find(s=>s.seat===1);
       if(s0&&s0.uid===O.uid)await enterRoom(code,0);
       else if(s1&&s1.uid===O.uid)await enterRoom(code,1);
       else if(s1)O.err='この部屋はもう2人そろっています。';
       else{
-        const {error:e3}=await sb.from('seats').insert({code,seat:1,uid:O.uid});
+        const {error:e3}=await sb.from('jinro_seats').insert({code,seat:1,uid:O.uid});
         if(e3&&e3.code==='23505')O.err='この部屋はもう2人そろっています。';
         else if(e3)throw e3;
         else await enterRoom(code,1);
@@ -253,16 +253,16 @@ async function enterRoom(code,seat){
   store.set('jinro-room',code);
   history.replaceState(null,'','?room='+code);
   O.ch=sb.channel('room-'+code)
-    .on('postgres_changes',{event:'*',schema:'public',table:'rooms',filter:'code=eq.'+code},p=>{if(p.new&&p.new.game)setGame(p.new.game)})
-    .on('postgres_changes',{event:'*',schema:'public',table:'seats',filter:'code=eq.'+code},p=>{if(p.new&&p.new.seat!=null){O.players[p.new.seat]=p.new;maybeStart();render()}})
+    .on('postgres_changes',{event:'*',schema:'public',table:'jinro_rooms',filter:'code=eq.'+code},p=>{if(p.new&&p.new.game)setGame(p.new.game)})
+    .on('postgres_changes',{event:'*',schema:'public',table:'jinro_seats',filter:'code=eq.'+code},p=>{if(p.new&&p.new.seat!=null){O.players[p.new.seat]=p.new;maybeStart();render()}})
     .subscribe(st=>{if(st==='SUBSCRIBED')fetchAll()});
   await fetchAll();
 }
 async function fetchAll(){
   const code=O.code;if(!code||!sb)return;
   const [r,s]=await Promise.all([
-    sb.from('rooms').select('game').eq('code',code).maybeSingle(),
-    sb.from('seats').select('*').eq('code',code)
+    sb.from('jinro_rooms').select('game').eq('code',code).maybeSingle(),
+    sb.from('jinro_seats').select('*').eq('code',code)
   ]);
   if(code!==O.code)return;
   if(r.error||s.error){O.err=errText(r.error||s.error);render();return}
@@ -284,7 +284,7 @@ function leaveRoom(silent){
 }
 async function saveGame(g){
   setGame(g);
-  const {error}=await sb.from('rooms').update({game:g,updated_at:new Date().toISOString()}).eq('code',O.code);
+  const {error}=await sb.from('jinro_rooms').update({game:g,updated_at:new Date().toISOString()}).eq('code',O.code);
   if(error){O.err=errText(error);O.toast=null;fetchAll()}
 }
 async function maybeStart(){
@@ -378,7 +378,7 @@ async function onlineAct(a,el){
     O.busy=true;O.err='';
     const row={code:O.code,seat:O.seat,uid:O.uid,ready:true,setup:O.draft.slice()};
     O.players[O.seat]=row;render();
-    const {error}=await sb.from('seats').upsert(row);
+    const {error}=await sb.from('jinro_seats').upsert(row);
     if(error){O.err=errText(error);fetchAll()}
     O.busy=false;maybeStart();
   }
@@ -392,7 +392,7 @@ async function onlineAct(a,el){
   else if(a==='oresign'){if(O.resignArm){O.resignArm=false;return writeEnd(1-O.seat,`${NAME[O.seat]}が投了しました`)}O.resignArm=true}
   else if(a==='rematch'){
     O.busy=true;render();
-    const {error}=await sb.from('seats').update({ready:false}).eq('code',O.code);
+    const {error}=await sb.from('jinro_seats').update({ready:false}).eq('code',O.code);
     if(error)O.err=errText(error);
     for(const s of [0,1])if(O.players[s])O.players[s]={...O.players[s],ready:false};
     await saveGame(blankGame(O.code,O.game.moveNo+1));
