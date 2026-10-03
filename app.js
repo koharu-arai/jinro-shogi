@@ -73,11 +73,27 @@ function decideTap(G,v,sel,r,c){
 function shuffle(ar){for(let i=ar.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ar[i],ar[j]]=[ar[j],ar[i]]}}
 
 /* ===== views ===== */
-function dots(t){const set=new Set(T[t].m.map(([y,x])=>(y+1)*3+(x+1)));let h='<span class="dots" aria-hidden="true">';for(let i=0;i<9;i++)h+=`<i class="${i===4?'c':set.has(i)?'on':''}"></i>`;return h+'</span>'}
+const D='#232838';
+const ICON={
+  king:`<path d="M8 33 L10 13 L18 22 L24 9 L30 22 L38 13 L40 33 Z" fill="#f7c948" stroke="${D}" stroke-width="2.4" stroke-linejoin="round"/><rect x="8" y="33" width="32" height="6" rx="1.5" fill="#e3a924" stroke="${D}" stroke-width="2.4"/><circle cx="24" cy="26" r="2.8" fill="#e5484d" stroke="${D}" stroke-width="1.6"/><circle cx="16" cy="28.5" r="1.9" fill="#3aa0e0"/><circle cx="32" cy="28.5" r="1.9" fill="#3aa0e0"/>`,
+  wolf:`<path d="M9 7 L18 17 H30 L39 7 L40 25 Q40 37 24 42 Q8 37 8 25 Z" fill="#8b93a7" stroke="${D}" stroke-width="2.4" stroke-linejoin="round"/><path d="M12 12 L17 18 L13 20 Z M36 12 L31 18 L35 20 Z" fill="${D}"/><path d="M17 29 L24 39 L31 29 Q24 25 17 29 Z" fill="#eef0f5" stroke="${D}" stroke-width="1.8" stroke-linejoin="round"/><path d="M21.5 34 H26.5 L24 37 Z" fill="${D}"/><path d="M13 23.5 L20.5 25.5 L15 27.5 Z M35 23.5 L27.5 25.5 L33 27.5 Z" fill="#ffd34d" stroke="${D}" stroke-width="1.2" stroke-linejoin="round"/>`,
+  villager:`<path d="M6 24 L24 8 L42 24 Z" fill="#d0583e" stroke="${D}" stroke-width="2.4" stroke-linejoin="round"/><rect x="11" y="23" width="26" height="17" fill="#f3dfb6" stroke="${D}" stroke-width="2.4"/><rect x="21" y="29" width="7" height="11" fill="#8a5a2b" stroke="${D}" stroke-width="1.6"/><rect x="13.5" y="27" width="5" height="5" fill="#7cc4f0" stroke="${D}" stroke-width="1.4"/><rect x="30" y="27" width="5" height="5" fill="#7cc4f0" stroke="${D}" stroke-width="1.4"/>`,
+  seer:`<path d="M24 4 V9 M12 7 L15.5 11.5 M36 7 L32.5 11.5" stroke="${D}" stroke-width="2.4" stroke-linecap="round"/><path d="M4 27 Q24 10 44 27 Q24 44 4 27 Z" fill="#fff" stroke="${D}" stroke-width="2.4" stroke-linejoin="round"/><circle cx="24" cy="27" r="8.5" fill="#7c5cd6" stroke="${D}" stroke-width="2"/><circle cx="24" cy="27" r="3.6" fill="${D}"/><circle cx="26.6" cy="24.4" r="1.5" fill="#fff"/>`,
+  hunter:`<path d="M15 6 Q39 24 15 42" fill="none" stroke="${D}" stroke-width="6" stroke-linecap="round"/><path d="M15 6 Q39 24 15 42" fill="none" stroke="#b06a33" stroke-width="3" stroke-linecap="round"/><path d="M15 6 V42" stroke="${D}" stroke-width="1.6"/><path d="M8 24 H37" stroke="${D}" stroke-width="2.6" stroke-linecap="round"/><path d="M43 24 L35 19 V29 Z" fill="#e8823f" stroke="${D}" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 24 L5.5 19.5 M9 24 L5.5 28.5 M13 24 L9.5 19.5 M13 24 L9.5 28.5" stroke="#e8823f" stroke-width="2.2" stroke-linecap="round"/>`,
+  knight:`<path d="M24 9 Q31 1 38 5 Q32 6 29 11" fill="#e5484d" stroke="${D}" stroke-width="1.8" stroke-linejoin="round"/><path d="M11 41 V23 Q11 9 24 9 Q37 9 37 23 V41 Z" fill="#aebccd" stroke="${D}" stroke-width="2.4" stroke-linejoin="round"/><path d="M15.5 22.5 H32.5" stroke="${D}" stroke-width="3.2" stroke-linecap="round"/><path d="M24 26 V38" stroke="#7d8ea3" stroke-width="2.4" stroke-linecap="round"/><circle cx="18" cy="32" r="1.4" fill="${D}"/><circle cx="30" cy="32" r="1.4" fill="${D}"/>`
+};
+const BAND={king:'#d99a12',wolf:'#ff6f93',villager:'#b8733a',seer:'#6a4fd0',hunter:'#d9692a',knight:'#5f7894'};
+function arrows(t){
+  return'<svg class="arw" viewBox="0 0 100 100" aria-hidden="true">'+T[t].m.map(([dy,dx])=>{
+    const x=50+dx*41,y=50+dy*41,ang=Math.atan2(dx,-dy)*180/Math.PI;
+    return`<path transform="translate(${x} ${y}) rotate(${ang})" d="M0 -6 L6 3 L-6 3 Z" fill="${D}" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/>`;
+  }).join('')+'</svg>';
+}
 function tile(type,{enemy=false,hidden=false,wolf='hid'}={}){
-  if(hidden)return`<span class="pc hidden enemy" aria-label="正体不明の駒"><span class="q">?</span></span>`;
+  if(hidden)return`<span class="pc hidden enemy" aria-label="正体不明の駒"><svg class="back" viewBox="0 0 48 48" aria-hidden="true"><text x="24" y="36" text-anchor="middle" font-size="34" font-weight="800" fill="currentColor" font-family="sans-serif">?</text></svg></span>`;
   const w=type==='wolf'?(wolf==='open'?' wolf-open':' wolf-hid'):'';
-  return`<span class="pc${w}${enemy?' enemy':''}" aria-label="${T[type].nm}"><span class="nm">${T[type].nm}</span>${dots(type)}</span>`;
+  const band=type==='wolf'&&wolf==='open'?'var(--wolf-open)':BAND[type];
+  return`<span class="pc${w}${enemy?' enemy':''}" style="--band:${band}" aria-label="${T[type].nm}"><svg class="ico" viewBox="0 0 48 48" aria-hidden="true">${ICON[type]}</svg><span class="band">${T[type].nm}</span>${arrows(type)}</span>`;
 }
 function boardHTML(G,v,{sel=null,interactive=false,reveal=false}={}){
   const tg=new Set();
@@ -438,7 +454,7 @@ setInterval(()=>{
 
 /* ===== root ===== */
 function renderHome(){
-  return`<section class="hero"><h1>人狼<span>将棋</span></h1><p>正体を隠した6枚の駒で、相手の王様を狙う心理戦。</p></section>
+  return`<section class="hero"><img class="emblem" src="icon.svg" alt="" width="72" height="72"><h1>人狼<span>将棋</span></h1><p>正体を隠した6枚の駒で、相手の王様を狙う心理戦。</p></section>
     <button class="btn orange mode" data-act="online">オンライン対戦<small>部屋コードで、離れた相手とそれぞれのスマホで対戦</small></button>
     <button class="btn ghost mode" data-act="local">1台で対戦<small>スマホ1台を交代で渡しながら2人で遊ぶ</small></button>
     ${rulesHTML(true)}`;
