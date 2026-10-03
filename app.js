@@ -232,7 +232,7 @@ async function loadPeople(uids){
   Object.assign(P.stats,st);render();
 }
 async function recordResult(g){
-  const key=`jinro-rec-${O.code}-${g.startNo}`;
+  const key=`jinro-rec-${O.uid}-${O.code}-${g.startNo}`;
   if(P.recorded.has(key)||store.get(key))return;
   P.recorded.add(key);
   const {error}=await sb.from('jinro_results').insert({code:O.code,game_no:g.startNo,uid:O.uid,win:g.winner===O.seat});
