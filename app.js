@@ -267,13 +267,12 @@ async function fetchAll(){
   if(code!==O.code)return;
   if(r.error||s.error){O.err=errText(r.error||s.error);render();return}
   const p={};(s.data||[]).forEach(x=>p[x.seat]=x);O.players=p;
-  if(r.data)setGame(r.data.game,true);else{O.game=null;render()}
+  if(r.data)setGame(r.data.game);else{O.game=null;render()}
 }
-function setGame(g,force){
-  if(O.game&&g.moveNo<O.game.moveNo&&!force)return;
+function setGame(g){
   if(O.game&&g.moveNo<O.game.moveNo)return;
   O.game=g;
-  if(g.moveNo!==O.seenMove){O.seenMove=g.moveNo;O.seenAt=Date.now();O.sel=null;O.timeoutSent=false;if(O.toast&&O.toast.move!==g.moveNo)O.toast=null}
+  if(g.moveNo!==O.seenMove){O.seenMove=g.moveNo;O.seenAt=g.turnAt?Math.min(Date.now(),g.turnAt):Date.now();O.sel=null;O.timeoutSent=false;if(O.toast&&O.toast.move!==g.moveNo)O.toast=null}
   maybeStart();render();
 }
 function leaveRoom(silent){
@@ -289,11 +288,11 @@ async function saveGame(g){
 }
 async function maybeStart(){
   const g=O.game,p=O.players;
-  if(O.seat!==0||!g||g.phase!=='setup'||O.starting)return;
+  if(O.seat==null||!g||g.phase!=='setup'||O.starting)return;
   if(!(p[0]?.ready&&p[1]?.ready&&p[0].setup&&p[1].setup))return;
   O.starting=true;
   const G=newGame([p[0].setup,p[1].setup]);
-  await saveGame({...g,...G,phase:'play',moveNo:g.moveNo+1,note:{for:0,text:'対局開始。あなたは先手です。',alert:false}});
+  await saveGame({...g,...G,phase:'play',moveNo:g.moveNo+1,turnAt:Date.now(),note:{for:0,text:'対局開始。あなたは先手です。',alert:false}});
   O.starting=false;
 }
 async function commit(apply){
@@ -307,7 +306,7 @@ async function commit(apply){
     else{g.turn=1-t;g.note={for:1-t,text:out.note,alert:!!out.alert}}
     O.toast={text:out.res,bad:!!out.bad,move:g.moveNo+1};
   }
-  g.moveNo++;O.sel=null;O.busy=true;
+  g.moveNo++;g.turnAt=Date.now();O.sel=null;O.busy=true;
   await saveGame(g);
   O.busy=false;render();
 }

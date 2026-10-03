@@ -5,7 +5,9 @@
 - **オンライン対戦**: 部屋コードか招待リンクで、離れた相手とそれぞれのスマホで対戦
 - **1台で対戦**: スマホ1台を交代で渡しながら2人で遊ぶ
 
-ビルド不要の静的サイトです(HTML・CSS・JavaScript のみ)。オンライン対戦のデータ保存とリアルタイム通信に Supabase を使います。
+公開URL: https://jinro-shogi.vercel.app
+
+ビルド不要の静的サイトです(HTML・CSS・JavaScript のみ)。オンライン対戦のデータ保存とリアルタイム通信に Supabase を使います。データは Supabase の kgu-app プロジェクト内の `jinro_rooms`・`jinro_seats` テーブルに保存しています(kgu-app の他のテーブルとは別です)。GitHub の main ブランチに push すると Vercel が自動で公開し直します。
 
 ## ファイル
 
