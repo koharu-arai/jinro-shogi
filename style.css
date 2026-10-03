@@ -75,8 +75,9 @@ h1,h2{font-family:var(--font-d);font-weight:400;margin:0;text-wrap:balance}
 .pc.enemy{transform:rotate(180deg)}
 .pc.wolf-hid{background:var(--wolf-hid-bg)}
 .pc.wolf-open{background:var(--wolf-open-bg)}
-.pc .ico{width:60%;height:60%;margin-top:9%;flex:none}
-.pc .band{position:absolute;left:2px;right:2px;bottom:2px;height:25%;background:var(--band);color:#fff;font-weight:800;font-size:calc(var(--cell)*.14);line-height:1;display:grid;place-items:center;white-space:nowrap;text-shadow:0 1px 0 rgba(0,0,0,.3);border-radius:0 0 calc(var(--cell)*.11) calc(var(--cell)*.11)}
+.pc .face{position:absolute;inset:13%;border-radius:calc(var(--cell)*.07);overflow:hidden;display:flex;flex-direction:column;align-items:center;background:rgba(255,255,255,.55);box-shadow:inset 0 0 0 1.5px rgba(35,40,56,.25)}
+.pc .ico{width:78%;height:66%;margin-top:4%;flex:none}
+.pc .band{position:absolute;left:0;right:0;bottom:0;height:30%;background:var(--band);color:#fff;font-weight:800;font-size:calc(var(--cell)*.12);line-height:1;display:grid;place-items:center;white-space:nowrap;text-shadow:0 1px 0 rgba(0,0,0,.3)}
 .pc .arw{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .pc.hidden{background:var(--enemy);color:var(--enemy-ink);justify-content:center}
 .pc.hidden .back{width:62%;height:62%;opacity:.35}
