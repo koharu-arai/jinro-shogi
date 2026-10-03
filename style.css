@@ -114,3 +114,10 @@ details.rules summary{cursor:pointer;padding:12px 0;font-weight:800}
 .prow span.d{color:var(--mute);font-size:13px;display:block}
 .over-h{font-size:40px}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.5}to{transform:none;opacity:1}}}
+.namein{flex:1;min-width:0;font-size:18px;font-weight:700;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg)}
+.account{grid-template-columns:1fr auto;align-items:center}
+.acct{display:grid;gap:2px;min-width:0}
+.acct b{font-size:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat{font-size:12px;color:var(--mute);font-weight:700;font-variant-numeric:tabular-nums}
+.side .who{max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vs{display:flex;flex-wrap:wrap;align-items:center;gap:6px}

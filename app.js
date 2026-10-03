@@ -206,16 +206,56 @@ function getUid(){
   if(!u){u=(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2));store.set('jinro-uid',u)}
   return u;
 }
+/* ---- player profile & stats ---- */
+const P={names:{},stats:{},editing:false,recorded:new Set()};
+const myName=()=>store.get('jinro-name')||'';
+const nameOf=(uid,fb)=>P.names[uid]||fb;
+function statText(uid){const st=P.stats[uid];if(!st||!st.n)return'戦績なし';return`勝率 ${Math.round(st.w/st.n*100)}%・${st.n}戦${st.w}勝`}
+async function saveName(raw){
+  const n=String(raw||'').trim().slice(0,12);
+  if(!n){O.err='名前を入力してください。';render();return}
+  const first=!myName();
+  store.set('jinro-name',n);P.names[O.uid]=n;P.editing=false;O.err='';render();
+  const q=new URLSearchParams(location.search).get('room');
+  if(first&&sb&&q&&!O.code)joinRoom(q);
+  if(sb){const {error}=await sb.from('jinro_players').upsert({uid:O.uid,name:n,updated_at:new Date().toISOString()});if(error)console.error(error)}
+}
+async function loadPeople(uids){
+  uids=[...new Set(uids.filter(Boolean))];if(!sb||!uids.length)return;
+  const [a,b]=await Promise.all([
+    sb.from('jinro_players').select('uid,name').in('uid',uids),
+    sb.from('jinro_results').select('uid,win').in('uid',uids)
+  ]);
+  (a.data||[]).forEach(r=>{P.names[r.uid]=r.name});
+  const st={};uids.forEach(u=>st[u]={w:0,n:0});
+  (b.data||[]).forEach(r=>{st[r.uid].n++;if(r.win)st[r.uid].w++});
+  Object.assign(P.stats,st);render();
+}
+async function recordResult(g){
+  const key=`jinro-rec-${O.code}-${g.startNo}`;
+  if(P.recorded.has(key)||store.get(key))return;
+  P.recorded.add(key);
+  const {error}=await sb.from('jinro_results').insert({code:O.code,game_no:g.startNo,uid:O.uid,win:g.winner===O.seat});
+  if(!error||error.code==='23505')store.set(key,'1');else{P.recorded.delete(key);console.error(error)}
+  loadPeople([O.players[0]?.uid,O.players[1]?.uid,O.uid]);
+}
+
 async function onlineInit(){
   if(O.ready)return;O.ready=true;O.uid=getUid();
+  if(myName())P.names[O.uid]=myName();
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY){O.noConfig=true;render();return}
   try{
     const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
     sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
   }catch(e){O.loadFail=true}
   render();
+  if(sb){
+    if(myName())sb.from('jinro_players').upsert({uid:O.uid,name:myName(),updated_at:new Date().toISOString()}).then(()=>{});
+    else{const {data}=await sb.from('jinro_players').select('name').eq('uid',O.uid).maybeSingle();if(data&&data.name){store.set('jinro-name',data.name);P.names[O.uid]=data.name}}
+    loadPeople([O.uid]);
+  }
   const q=new URLSearchParams(location.search).get('room');
-  if(sb&&q&&!O.code)joinRoom(q);
+  if(sb&&q&&!O.code&&myName())joinRoom(q);
 }
 function genCode(){const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<4;i++)s+=A[Math.floor(Math.random()*A.length)];return s}
 function errText(e){console.error(e);return'通信できませんでした。電波の良いところで、もう一度試してください。'}
@@ -270,7 +310,7 @@ async function enterRoom(code,seat){
   history.replaceState(null,'','?room='+code);
   O.ch=sb.channel('room-'+code)
     .on('postgres_changes',{event:'*',schema:'public',table:'jinro_rooms',filter:'code=eq.'+code},p=>{if(p.new&&p.new.game)setGame(p.new.game)})
-    .on('postgres_changes',{event:'*',schema:'public',table:'jinro_seats',filter:'code=eq.'+code},p=>{if(p.new&&p.new.seat!=null){O.players[p.new.seat]=p.new;maybeStart();render()}})
+    .on('postgres_changes',{event:'*',schema:'public',table:'jinro_seats',filter:'code=eq.'+code},p=>{if(p.new&&p.new.seat!=null){const nu=!O.players[p.new.seat];O.players[p.new.seat]=p.new;if(nu)loadPeople([O.players[0]?.uid,O.players[1]?.uid]);maybeStart();render()}})
     .subscribe(st=>{if(st==='SUBSCRIBED')fetchAll()});
   await fetchAll();
 }
@@ -283,12 +323,14 @@ async function fetchAll(){
   if(code!==O.code)return;
   if(r.error||s.error){O.err=errText(r.error||s.error);render();return}
   const p={};(s.data||[]).forEach(x=>p[x.seat]=x);O.players=p;
+  loadPeople([p[0]?.uid,p[1]?.uid]);
   if(r.data)setGame(r.data.game);else{O.game=null;render()}
 }
 function setGame(g){
   if(O.game&&g.moveNo<O.game.moveNo)return;
   O.game=g;
   if(g.moveNo!==O.seenMove){O.seenMove=g.moveNo;O.seenAt=g.turnAt?Math.min(Date.now(),g.turnAt):Date.now();O.sel=null;O.timeoutSent=false;if(O.toast&&O.toast.move!==g.moveNo)O.toast=null}
+  if(g.phase==='over'&&g.startNo!=null&&O.seat!=null)recordResult(g);
   maybeStart();render();
 }
 function leaveRoom(silent){
@@ -308,7 +350,7 @@ async function maybeStart(){
   if(!(p[0]?.ready&&p[1]?.ready&&p[0].setup&&p[1].setup))return;
   O.starting=true;
   const G=newGame([p[0].setup,p[1].setup]);
-  await saveGame({...g,...G,phase:'play',moveNo:g.moveNo+1,turnAt:Date.now(),note:{for:0,text:'対局開始。あなたは先手です。',alert:false}});
+  await saveGame({...g,...G,phase:'play',moveNo:g.moveNo+1,startNo:g.moveNo+1,turnAt:Date.now(),note:{for:0,text:'対局開始。あなたは先手です。',alert:false}});
   O.starting=false;
 }
 async function commit(apply){
@@ -330,14 +372,24 @@ async function writeEnd(winner,reason){
   const g=clone(O.game);g.winner=winner;g.reason=reason;g.phase='over';g.moveNo++;
   await saveGame(g);
 }
+function profileCard(){
+  const n=myName();
+  if(!n||P.editing)return`<div class="card"><b>${n?'名前を変更':'プレイヤー名を決める'}</b><p class="muted">対戦相手に表示される名前です(12文字まで)。名前と戦績はこの端末に結びつきます。</p>
+    <div class="row"><input id="pname" class="namein" maxlength="12" autocomplete="nickname" placeholder="なまえ" value="${esc(n)}"><button class="btn" data-act="saveName">保存</button>${n?'<button class="btn ghost small" data-act="cancelName">やめる</button>':''}</div></div>`;
+  return`<div class="card account"><div class="acct"><span class="muted">プレイヤー</span><b>${esc(n)}</b><span class="stat">${statText(O.uid)}</span></div><button class="btn ghost small" data-act="editName">名前を変更</button></div>`;
+}
+function playerRow(uid,fb,seat,extra){
+  return`<div class="side"><span class="who">${esc(nameOf(uid,fb))}</span><span class="badge">${NAME[seat]}</span>${uid?`<span class="stat">${statText(uid)}</span>`:''}${extra||''}</div>`;
+}
 function renderOnline(){
   if(!O.ready)return`<div class="card"><p class="muted">接続しています…</p></div>`;
   const back=`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 style="font-size:22px">オンライン対戦</h2></div>`;
   if(O.noConfig)return`${back}<div class="card"><b>オンライン対戦の準備がまだです</b><p class="muted">サイトを公開した人が config.js に Supabase の URL とキーを設定すると使えるようになります。それまでは1台で対戦で遊べます。</p><button class="btn orange" data-act="local">1台で対戦する</button></div>`;
   if(O.loadFail||!sb)return`${back}<div class="card"><b>サーバーに接続できませんでした</b><p class="muted">通信環境を確認して、ページを読み込み直してください。</p><button class="btn orange" data-act="local">1台で対戦する</button></div>`;
+  if(!O.code&&!myName())return`${back}${profileCard()}${O.err?`<p class="err">${esc(O.err)}</p>`:''}`;
   if(!O.code){
     const pre=new URLSearchParams(location.search).get('room')||store.get('jinro-room')||'';
-    return`${back}
+    return`${back}${profileCard()}
       <div class="card"><b>部屋を作る</b><p class="muted">あなたが先手になります。表示されるコードかリンクを相手に送ってください。</p><button class="btn orange" data-act="create" ${O.busy?'disabled':''}>部屋を作る</button></div>
       <div class="card"><b>部屋に入る</b><p class="muted">相手から届いた4文字のコードを入力します。あなたは後手になります。</p>
         <div class="row"><input id="code" class="codein" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="ABCD" value="${esc(pre)}"><button class="btn" data-act="join" ${O.busy?'disabled':''}>入る</button></div></div>
@@ -345,20 +397,22 @@ function renderOnline(){
   }
   const g=O.game,me=O.seat,op=1-me;
   if(!g)return`<div class="card"><p class="muted">部屋を読み込んでいます…</p><button class="btn ghost small" data-act="leave">退出</button></div>`;
-  const opIn=!!O.players[op];
-  const head=`<div class="top"><button class="btn ghost small" data-act="leave">退出</button>${g.phase==='setup'?`<span class="badge">部屋 ${esc(O.code)}</span>`:clocksHTML(me,op,'あなた','相手')}</div>`;
+  const opIn=!!O.players[op],myUid=O.uid,opUid=O.players[op]?.uid;
+  const head=`<div class="top"><button class="btn ghost small" data-act="leave">退出</button>${g.phase==='setup'?`<span class="badge">部屋 ${esc(O.code)}</span>`:clocksHTML(me,op,esc(nameOf(myUid,'あなた')),esc(nameOf(opUid,'相手')))}</div>`;
   const err=O.err?`<p class="err">${esc(O.err)}</p>`:'';
   if(g.phase==='setup'){
     const mine=O.players[me];
+    const vs=opIn?`<div class="card vs">${playerRow(opUid,'相手',op)}<span class="muted">が入りました</span></div>`:'';
     const wait=!opIn?`<div class="card" style="text-align:center"><p class="muted">相手を待っています。このコードかリンクを送ってください</p><div class="code">${esc(O.code)}</div><div class="row" style="justify-content:center"><button class="btn ghost small" data-act="copyLink">招待リンクをコピー</button><button class="btn ghost small" data-act="copy">コードをコピー</button></div></div>`:'';
-    if(mine&&mine.ready)return`${head}${wait}<div class="card"><b>配置を決めました</b><p class="muted">${opIn?'相手が配置を決めるのを待っています。':'相手が入ってくるのを待っています。'}そろったら自動で対局が始まります。</p></div>${err}${rulesHTML()}`;
-    return`${head}${wait}<div class="side"><span class="who">あなた(${NAME[me]})の配置</span><span class="badge">2マスを順にタップで入れ替え</span></div>
+    if(mine&&mine.ready)return`${head}${wait}${vs}<div class="card"><b>配置を決めました</b><p class="muted">${opIn?'相手が配置を決めるのを待っています。':'相手が入ってくるのを待っています。'}そろったら自動で対局が始まります。</p></div>${err}${rulesHTML()}`;
+    return`${head}${wait}${vs}<div class="side"><span class="who">あなた(${NAME[me]})の配置</span><span class="badge">2マスを順にタップで入れ替え</span></div>
       ${setupBoardHTML(O.draft,O.sel?.i)}${setupControls()}<button class="btn orange" data-act="ready" ${O.busy?'disabled':''}>この配置で決定</button>${err}${rulesHTML()}`;
   }
   if(g.phase==='over'){
     const win=g.winner===me;
     return`<div class="top"><button class="btn ghost small" data-act="leave">退出</button></div>
       <section class="hero"><h1 class="over-h">${win?'あなたの勝ち':'あなたの負け'}</h1><p>${esc(g.reason)}。すべての駒を公開しています。</p></section>
+      <div class="card">${playerRow(myUid,'あなた',me,g.winner===me?'<span class="badge turn">勝ち</span>':'')}${playerRow(opUid,'相手',op,g.winner===op?'<span class="badge turn">勝ち</span>':'')}</div>
       ${boardHTML(g,me,{reveal:true})}
       ${me===0?`<button class="btn orange" data-act="rematch" ${O.busy?'disabled':''}>同じ相手ともう一度</button>`:`<p class="muted">先手(部屋を作った人)が「もう一度」を押すと次の対局の配置に進みます。</p>`}${err}`;
   }
@@ -368,9 +422,9 @@ function renderOnline(){
   else if(g.turn===me){const n=g.note&&g.note.for===me?g.note:null;status=`<div class="status${n&&n.alert?' alert':''}">${n?esc(n.text)+' ':''}あなたの番です。</div>`}
   else status=`<div class="status wait">相手の番です。</div>`;
   return`${head}
-    <div class="side"><span class="who">相手(${NAME[op]})</span><span class="badge">持ち駒 ${g.hands[op].length}枚</span>${g.turn===op?'<span class="badge turn">考え中</span>':''}</div>
+    ${playerRow(opUid,'相手',op,`<span class="badge">持ち駒 ${g.hands[op].length}枚</span>${g.turn===op?'<span class="badge turn">考え中</span>':''}`)}
     ${boardHTML(g,me,{sel:O.sel,interactive:myTurn})}
-    <div class="side"><span class="who">あなた(${NAME[me]})</span>${g.turn===me?'<span class="badge turn">あなたの番</span>':''}</div>
+    ${playerRow(myUid,'あなた',me,g.turn===me?'<span class="badge turn">あなたの番</span>':'')}
     ${handHTML(g,me,O.sel,myTurn)}
     ${status}${err}
     <div class="row"><span class="spacer"></span><button class="btn ${O.resignArm?'danger':'ghost'} small" data-act="oresign">${O.resignArm?'もう一度押すと投了':'投了'}</button></div>${rulesHTML()}`;
@@ -381,6 +435,9 @@ async function copyText(text,el){
 }
 async function onlineAct(a,el){
   if(a!=='oresign')O.resignArm=false;
+  if(a==='saveName')return saveName(document.getElementById('pname')?.value);
+  if(a==='editName'){P.editing=true;render();return}
+  if(a==='cancelName'){P.editing=false;render();return}
   if(a==='create')return createRoom();
   if(a==='join')return joinRoom(document.getElementById('code')?.value);
   if(a==='leave'){leaveRoom();return}
@@ -455,15 +512,16 @@ setInterval(()=>{
 /* ===== root ===== */
 function renderHome(){
   return`<section class="hero"><img class="emblem" src="icon.svg" alt="" width="72" height="72"><h1>人狼<span>将棋</span></h1><p>正体を隠した6枚の駒で、相手の王様を狙う心理戦。</p></section>
+    ${myName()?`<div class="card account"><div class="acct"><span class="muted">プレイヤー</span><b>${esc(myName())}</b><span class="stat">${statText(O.uid)}</span></div></div>`:''}
     <button class="btn orange mode" data-act="online">オンライン対戦<small>部屋コードで、離れた相手とそれぞれのスマホで対戦</small></button>
     <button class="btn ghost mode" data-act="local">1台で対戦<small>スマホ1台を交代で渡しながら2人で遊ぶ</small></button>
     ${rulesHTML(true)}`;
 }
 function render(){
   const app=document.getElementById('app');
-  const focused=document.activeElement&&document.activeElement.id==='code'?document.activeElement.value:null;
+  const ae=document.activeElement,keep=ae&&(ae.id==='code'||ae.id==='pname')?{id:ae.id,v:ae.value}:null;
   app.innerHTML=S.screen==='home'?renderHome():S.screen==='local'?renderLocal():renderOnline();
-  if(focused!=null){const i=document.getElementById('code');if(i){i.value=focused;i.focus()}}
+  if(keep){const i=document.getElementById(keep.id);if(i){i.value=keep.v;i.focus()}}
   updateClocks();
 }
 document.getElementById('app').addEventListener('click',e=>{
@@ -474,7 +532,11 @@ document.getElementById('app').addEventListener('click',e=>{
   if(S.screen==='local'){localAct(a,el);render()}
   else if(S.screen==='online')onlineAct(a,el);
 });
-document.getElementById('app').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='code')joinRoom(e.target.value)});
+document.getElementById('app').addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||e.isComposing)return;
+  if(e.target.id==='code')joinRoom(e.target.value);
+  if(e.target.id==='pname')saveName(e.target.value);
+});
 
-if(new URLSearchParams(location.search).get('room')){S.screen='online';render();onlineInit()}
-else render();
+if(new URLSearchParams(location.search).get('room'))S.screen='online';
+render();onlineInit();
