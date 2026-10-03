@@ -85,12 +85,12 @@ const ICON={
 const BAND={king:'#d99a12',wolf:'#ff6f93',villager:'#b8733a',seer:'#6a4fd0',hunter:'#d9692a',knight:'#5f7894'};
 function arrows(t){
   return'<svg class="arw" viewBox="0 0 100 100" aria-hidden="true">'+T[t].m.map(([dy,dx])=>{
-    const x=50+dx*43.5,y=50+dy*43.5,ang=Math.atan2(dx,-dy)*180/Math.PI;
+    const k=dx&&dy?39:43.5,x=50+dx*k,y=50+dy*k,ang=Math.atan2(dx,-dy)*180/Math.PI;
     return`<path transform="translate(${x} ${y}) rotate(${ang})" d="M0 -5 L5.5 3 L-5.5 3 Z" fill="${D}" stroke-linejoin="round"/>`;
   }).join('')+'</svg>';
 }
 function tile(type,{enemy=false,hidden=false,wolf='hid'}={}){
-  if(hidden)return`<span class="pc hidden enemy" aria-label="正体不明の駒"><svg class="back" viewBox="0 0 48 48" aria-hidden="true"><text x="24" y="36" text-anchor="middle" font-size="34" font-weight="800" fill="currentColor" font-family="sans-serif">?</text></svg></span>`;
+  if(hidden)return`<span class="pc hidden" aria-label="正体不明の駒"><svg class="back" viewBox="0 0 48 48" aria-hidden="true"><text x="24" y="36" text-anchor="middle" font-size="34" font-weight="800" fill="currentColor" font-family="sans-serif">?</text></svg></span>`;
   const w=type==='wolf'?(wolf==='open'?' wolf-open':' wolf-hid'):'';
   const band=type==='wolf'&&wolf==='open'?'var(--wolf-open)':BAND[type];
   return`<span class="pc${w}${enemy?' enemy':''}" style="--band:${band}" aria-label="${T[type].nm}"><span class="face"><svg class="ico" viewBox="0 0 48 48" aria-hidden="true">${ICON[type]}</svg><span class="band">${T[type].nm}</span></span>${arrows(type)}</span>`;
