@@ -32,7 +32,11 @@ function buildBoard(setups){
   });
   return b;
 }
-function newGame(setups){return{board:buildBoard(setups),hands:[[],[]],turn:0,last:null,time:[MAIN,MAIN],winner:null,reason:''}}
+const DEFAULT_RULES={time:0,drops:false};
+const TIME_OPTS=[[0,'なし'],[60,'1分'],[180,'3分'],[300,'5分']];
+const rulesOf=G=>({time:G?.rules?.time??MAIN,drops:G?.rules?.drops??true});
+function rulesText(r){const t=r.time?((TIME_OPTS.find(x=>x[0]===r.time)||[0,Math.round(r.time/60)+'分'])[1]):'なし';return`持ち時間 ${t}・持ち駒 ${r.drops?'あり':'なし'}`}
+function newGame(setups,rules){const r=rules||DEFAULT_RULES;return{board:buildBoard(setups),hands:[[],[]],turn:0,last:null,rules:{time:r.time,drops:r.drops},time:[r.time,r.time],winner:null,reason:''}}
 function targets(G,r,c){
   const P=G.board[r][c],out=[],s=P.owner===0?1:-1;
   for(const[dy,dx]of T[P.type].m){
@@ -49,13 +53,13 @@ function applyMove(G,r,c,nr,nc){
   const B=G.board,A=B[r][c],Q=B[nr][nc],me=A.owner,op=1-me;
   if(!Q){B[nr][nc]=A;B[r][c]=null;G.last={from:[r,c],to:[nr,nc],kind:'move'};return{res:'駒を動かしました。',note:'相手が駒を動かしました。'}}
   if(Q.type==='wolf'&&!Q.revealed&&A.type!=='seer'){
-    B[r][c]=null;Q.revealed=true;G.hands[op].push(A.type);G.last={from:[r,c],to:[nr,nc],kind:'counter'};
+    B[r][c]=null;Q.revealed=true;if(rulesOf(G).drops)G.hands[op].push(A.type);G.last={from:[r,c],to:[nr,nc],kind:'counter'};
     if(A.type==='king'){G.winner=op;G.reason='王様が隠れた人狼に返り討ちにされました'}
-    return{res:`返り討ち！ その駒は隠れた人狼でした。あなたの${T[A.type].nm}は相手の持ち駒になります。`,note:`あなたの人狼が相手の${T[A.type].nm}を返り討ちにしました。人狼の正体が相手に知られました。`,alert:true,bad:true};
+    return{res:`返り討ち！ その駒は隠れた人狼でした。あなたの${T[A.type].nm}は${rulesOf(G).drops?'相手の持ち駒になります':'盤から取り除かれました'}。`,note:`あなたの人狼が相手の${T[A.type].nm}を返り討ちにしました。人狼の正体が相手に知られました。`,alert:true,bad:true};
   }
-  B[nr][nc]=A;B[r][c]=null;G.hands[me].push(Q.type);G.last={from:[r,c],to:[nr,nc],kind:'capture'};
+  B[nr][nc]=A;B[r][c]=null;if(rulesOf(G).drops)G.hands[me].push(Q.type);G.last={from:[r,c],to:[nr,nc],kind:'capture'};
   if(Q.type==='king'){G.winner=me;G.reason='王様を取りました'}
-  return{res:`相手の${T[Q.type].nm}を取りました。持ち駒として打てます。`,note:`あなたの${T[Q.type].nm}が取られました。`,alert:true};
+  return{res:`相手の${T[Q.type].nm}を取りました。${rulesOf(G).drops?'持ち駒として打てます。':''}`,note:`あなたの${T[Q.type].nm}が取られました。`,alert:true};
 }
 function applyDrop(G,i,r,c){
   const me=G.turn,t=G.hands[me].splice(i,1)[0];
@@ -119,11 +123,21 @@ function boardHTML(G,v,{sel=null,interactive=false,reveal=false}={}){
   }
   return h+'</div></div>';
 }
+function rulesCard(r,editable){
+  if(!editable)return`<div class="card rulesbox"><b>部屋のルール</b><p class="muted">${rulesText(r)}(部屋を作った人が決めます)</p></div>`;
+  const chip=(act,val,label,on)=>`<button class="chip${on?' on':''}" data-act="${act}" data-v="${val}" aria-pressed="${on}">${label}</button>`;
+  return`<div class="card rulesbox"><b>部屋のルール</b>
+    <div class="ruleline"><span class="muted">持ち時間</span><div class="row">${TIME_OPTS.map(([v,l])=>chip('setTime',v,l,r.time===v)).join('')}</div></div>
+    <div class="ruleline"><span class="muted">持ち駒</span><div class="row">${chip('setDrops',1,'あり',r.drops)}${chip('setDrops',0,'なし',!r.drops)}</div></div>
+    <p class="muted">${r.drops?'取った駒は持ち駒になり、空いているマスに打てます。':'取った駒は盤から消えます。'}${r.time?'持ち時間を使い切ると1手10秒の秒読みです。':'時間制限なしで考えられます。'}</p></div>`;
+}
 function handHTML(G,v,sel,enabled){
+  if(!rulesOf(G).drops)return'';
   const h=G.hands[v];
   return`<div class="hand" aria-label="あなたの持ち駒">${h.length?h.map((t,i)=>`<button class="handbtn${sel&&sel.hand===i?' sel':''}" data-act="hand" data-i="${i}" ${enabled?'':'disabled'}>${tile(t)}</button>`).join(''):'<span class="empty">持ち駒なし</span>'}</div>`;
 }
-function clocksHTML(me,op,meLabel,opLabel){
+function clocksHTML(me,op,meLabel,opLabel,G){
+  if(G&&!rulesOf(G).time)return`<div class="clocks"><div class="clk me"><span class="who">${meLabel}</span><b class="vsname">vs</b></div><div class="clk op"><span class="who">${opLabel}</span><b class="vsname">時間なし</b></div></div>`;
   return`<div class="clocks"><div class="clk me" data-ck="${me}"><span class="who">${meLabel}</span><b data-clock="${me}">2:00</b><span class="meter"><i data-meter="${me}"></i></span></div>
   <div class="clk op" data-ck="${op}"><span class="who">${opLabel}</span><b data-clock="${op}">2:00</b><span class="meter"><i data-meter="${op}"></i></span></div></div>`;
 }
@@ -143,8 +157,8 @@ function rulesHTML(open=false){
     <li>3×5の盤で、お互い6枚の駒を指し合います。相手の<b>王様を取れば勝ち</b>です。</li>
     <li>対局前に手前2段へ6枚を自由に配置します。相手の駒は灰色で正体が見えません。</li>
     <li><b>隠れた人狼</b>(ピンク)は駒を取れません。占い師以外の駒が取りに来ると<b>返り討ち</b>にして、その駒を奪います。返り討ちにした人狼は正体が明かされ(青)、普通に取ったり取られたりします。</li>
-    <li>取った駒は持ち駒になり、空いているマスならどこにでも打てます。打った駒は相手から見えません。打った人狼は隠れた状態に戻ります。</li>
-    <li>持ち時間は2分。使い切ると1手10秒の秒読みで、間に合わなければ負けです。</li>
+    <li>持ち駒ありのときは、取った駒を空いているマスに打てます。打った駒は相手から見えず、打った人狼は隠れた状態に戻ります。持ち駒なしのときは、取った駒は盤から消えます。</li>
+    <li>持ち時間と持ち駒のあり・なしは、部屋を作った人が対局前に決めます。持ち時間を使い切ると1手10秒の秒読みで、間に合わなければ負けです。</li>
   </ul>
   <div class="ptable">${ORDER.map(t=>`<div class="prow">${tile(t)}<div><b>${T[t].nm}</b><span class="d">${T[t].d}</span></div></div>`).join('')}</div></details>`;
 }
@@ -155,9 +169,10 @@ let L=null;
 const O={code:null,seat:null,game:null,players:{},draft:PRESETS[0].a.slice(),sel:null,seenMove:-1,seenAt:Date.now(),toast:null,err:'',busy:false,ready:false,noConfig:false,loadFail:false,uid:null,ch:null,timeoutSent:false,starting:false,resignArm:false};
 
 /* ===== local mode (one device) ===== */
-function localNew(){L={phase:'cover',cover:{p:0,next:'setup'},setup:[PRESETS[0].a.slice(),PRESETS[0].a.slice()],setupP:0,sel:null,G:null,byo:BYO,out:null,notice:'',noticeAlert:false,resignArm:false}}
+function localNew(){L={phase:'rules',rules:{...DEFAULT_RULES},cover:{p:0,next:'setup'},setup:[PRESETS[0].a.slice(),PRESETS[0].a.slice()],setupP:0,sel:null,G:null,byo:BYO,out:null,notice:'',noticeAlert:false,resignArm:false}}
 function localEnd(out){L.sel=null;L.byo=BYO;if(L.G.winner!=null)L.phase='over';else{L.out=out;L.phase='result'}}
 function renderLocal(){
+  if(L.phase==='rules')return`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 style="font-size:22px">1台で対戦</h2></div>${rulesCard(L.rules,true)}<button class="btn orange" data-act="localStart">配置へ進む</button>${rulesHTML()}`;
   if(L.phase==='cover'){
     const p=L.cover.p,setup=L.cover.next==='setup';
     return`<div class="cover"><h2>${NAME[p]}の番</h2><p>${setup?`${NAME[p]}が駒の配置を決めます。相手に画面を見せないでください。`:`スマホを${NAME[p]}に渡してください。`}</p><button class="btn orange" data-act="uncover">${NAME[p]}です。画面を開く</button><button class="btn ghost small" data-act="home">タイトルに戻る</button></div>`;
@@ -172,8 +187,8 @@ function renderLocal(){
       ${boardHTML(G,0,{reveal:true})}<div class="row"><button class="btn orange" data-act="localAgain">もう一度遊ぶ</button><button class="btn ghost" data-act="home">タイトルへ</button></div>`;
   }
   const v=G.turn,op=1-v,play=L.phase==='play';
-  return`<div class="top"><button class="btn ghost small" data-act="home">退出</button>${clocksHTML(v,op,NAME[v]+'(あなた)',NAME[op])}</div>
-    <div class="side"><span class="who">${NAME[op]}</span><span class="badge">持ち駒 ${G.hands[op].length}枚</span></div>
+  return`<div class="top"><button class="btn ghost small" data-act="home">退出</button>${clocksHTML(v,op,NAME[v]+'(あなた)',NAME[op],G)}</div>
+    <div class="side"><span class="who">${NAME[op]}</span>${rulesOf(G).drops?`<span class="badge">持ち駒 ${G.hands[op].length}枚</span>`:''}</div>
     ${boardHTML(G,v,{sel:L.sel,interactive:play})}
     <div class="side"><span class="who">${NAME[v]}</span><span class="badge turn">あなたの番</span></div>
     ${handHTML(G,v,L.sel,play)}
@@ -183,11 +198,14 @@ function renderLocal(){
 }
 function localAct(a,el){
   if(a!=='resign')L.resignArm=false;
-  if(a==='uncover'){L.phase=L.cover.next;L.sel=null;lastT=null}
+  if(a==='setTime'){L.rules.time=+el.dataset.v}
+  else if(a==='setDrops'){L.rules.drops=el.dataset.v==='1'}
+  else if(a==='localStart'){L.phase='cover';L.cover={p:0,next:'setup'}}
+  else if(a==='uncover'){L.phase=L.cover.next;L.sel=null;lastT=null}
   else if(a==='swap'){const i=+el.dataset.i,ar=L.setup[L.setupP];if(L.sel&&L.sel.i!=null){[ar[L.sel.i],ar[i]]=[ar[i],ar[L.sel.i]];L.sel=null}else L.sel={i}}
   else if(a==='preset'){L.setup[L.setupP]=PRESETS[+el.dataset.k].a.slice();L.sel=null}
   else if(a==='shuffle'){shuffle(L.setup[L.setupP]);L.sel=null}
-  else if(a==='confirm'){L.sel=null;if(L.setupP===0){L.setupP=1;L.cover={p:1,next:'setup'}}else{L.G=newGame(L.setup);L.notice='対局開始。先手から指します。';L.noticeAlert=false;L.cover={p:0,next:'play'}}L.phase='cover'}
+  else if(a==='confirm'){L.sel=null;if(L.setupP===0){L.setupP=1;L.cover={p:1,next:'setup'}}else{L.G=newGame(L.setup,L.rules);L.notice='対局開始。先手から指します。';L.noticeAlert=false;L.cover={p:0,next:'play'}}L.phase='cover'}
   else if(a==='hand'){const i=+el.dataset.i;L.sel=L.sel&&L.sel.hand===i?null:{hand:i}}
   else if(a==='cell'&&L.phase==='play'){
     const G=L.G,[r,c]=toAbs(G.turn,+el.dataset.r,+el.dataset.c),d=decideTap(G,G.turn,L.sel,r,c);
@@ -259,7 +277,7 @@ async function onlineInit(){
 }
 function genCode(){const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<4;i++)s+=A[Math.floor(Math.random()*A.length)];return s}
 function errText(e){console.error(e);return'通信できませんでした。電波の良いところで、もう一度試してください。'}
-function blankGame(code,moveNo){return{code,phase:'setup',moveNo,board:null,hands:[[],[]],turn:0,time:[MAIN,MAIN],last:null,note:null,winner:null,reason:''}}
+function blankGame(code,moveNo,rules){const r=rules||DEFAULT_RULES;return{code,phase:'setup',moveNo,board:null,hands:[[],[]],turn:0,rules:{time:r.time,drops:r.drops},time:[r.time,r.time],last:null,note:null,winner:null,reason:''}}
 function roomLink(code){return location.origin+location.pathname+'?room='+code}
 
 async function createRoom(){
@@ -349,16 +367,16 @@ async function maybeStart(){
   if(O.seat==null||!g||g.phase!=='setup'||O.starting)return;
   if(!(p[0]?.ready&&p[1]?.ready&&p[0].setup&&p[1].setup))return;
   O.starting=true;
-  const G=newGame([p[0].setup,p[1].setup]);
+  const G=newGame([p[0].setup,p[1].setup],rulesOf(g));
   await saveGame({...g,...G,phase:'play',moveNo:g.moveNo+1,startNo:g.moveNo+1,turnAt:Date.now(),note:{for:0,text:'対局開始。あなたは先手です。',alert:false}});
   O.starting=false;
 }
 async function commit(apply){
   if(O.busy)return;
-  const g=clone(O.game),t=g.turn,el=(Date.now()-O.seenAt)/1000,rem=g.time[t]-el;
-  if(rem<-BYO){g.winner=1-t;g.reason=`${NAME[t]}の時間切れ`;g.phase='over'}
+  const g=clone(O.game),t=g.turn,timed=rulesOf(g).time>0,el=(Date.now()-O.seenAt)/1000,rem=g.time[t]-el;
+  if(timed&&rem<-BYO){g.winner=1-t;g.reason=`${NAME[t]}の時間切れ`;g.phase='over'}
   else{
-    g.time[t]=Math.max(0,rem);
+    if(timed)g.time[t]=Math.max(0,rem);
     const out=apply(g);
     if(g.winner!=null)g.phase='over';
     else{g.turn=1-t;g.note={for:1-t,text:out.note,alert:!!out.alert}}
@@ -398,14 +416,15 @@ function renderOnline(){
   const g=O.game,me=O.seat,op=1-me;
   if(!g)return`<div class="card"><p class="muted">部屋を読み込んでいます…</p><button class="btn ghost small" data-act="leave">退出</button></div>`;
   const opIn=!!O.players[op],myUid=O.uid,opUid=O.players[op]?.uid;
-  const head=`<div class="top"><button class="btn ghost small" data-act="leave">退出</button>${g.phase==='setup'?`<span class="badge">部屋 ${esc(O.code)}</span>`:clocksHTML(me,op,esc(nameOf(myUid,'あなた')),esc(nameOf(opUid,'相手')))}</div>`;
+  const head=`<div class="top"><button class="btn ghost small" data-act="leave">退出</button>${g.phase==='setup'?`<span class="badge">部屋 ${esc(O.code)}</span>`:clocksHTML(me,op,esc(nameOf(myUid,'あなた')),esc(nameOf(opUid,'相手')),g)}</div>`;
   const err=O.err?`<p class="err">${esc(O.err)}</p>`:'';
   if(g.phase==='setup'){
     const mine=O.players[me];
+    const rc=rulesCard(rulesOf(g),me===0);
     const vs=opIn?`<div class="card vs">${playerRow(opUid,'相手',op)}<span class="muted">が入りました</span></div>`:'';
     const wait=!opIn?`<div class="card" style="text-align:center"><p class="muted">相手を待っています。このコードかリンクを送ってください</p><div class="code">${esc(O.code)}</div><div class="row" style="justify-content:center"><button class="btn ghost small" data-act="copyLink">招待リンクをコピー</button><button class="btn ghost small" data-act="copy">コードをコピー</button></div></div>`:'';
-    if(mine&&mine.ready)return`${head}${wait}${vs}<div class="card"><b>配置を決めました</b><p class="muted">${opIn?'相手が配置を決めるのを待っています。':'相手が入ってくるのを待っています。'}そろったら自動で対局が始まります。</p></div>${err}${rulesHTML()}`;
-    return`${head}${wait}${vs}<div class="side"><span class="who">あなた(${NAME[me]})の配置</span><span class="badge">2マスを順にタップで入れ替え</span></div>
+    if(mine&&mine.ready)return`${head}${wait}${vs}${rc}<div class="card"><b>配置を決めました</b><p class="muted">${opIn?'相手が配置を決めるのを待っています。':'相手が入ってくるのを待っています。'}そろったら自動で対局が始まります。</p></div>${err}${rulesHTML()}`;
+    return`${head}${wait}${vs}${rc}<div class="side"><span class="who">あなた(${NAME[me]})の配置</span><span class="badge">2マスを順にタップで入れ替え</span></div>
       ${setupBoardHTML(O.draft,O.sel?.i)}${setupControls()}<button class="btn orange" data-act="ready" ${O.busy?'disabled':''}>この配置で決定</button>${err}${rulesHTML()}`;
   }
   if(g.phase==='over'){
@@ -422,12 +441,12 @@ function renderOnline(){
   else if(g.turn===me){const n=g.note&&g.note.for===me?g.note:null;status=`<div class="status${n&&n.alert?' alert':''}">${n?esc(n.text)+' ':''}あなたの番です。</div>`}
   else status=`<div class="status wait">相手の番です。</div>`;
   return`${head}
-    ${playerRow(opUid,'相手',op,`<span class="badge">持ち駒 ${g.hands[op].length}枚</span>${g.turn===op?'<span class="badge turn">考え中</span>':''}`)}
+    ${playerRow(opUid,'相手',op,`${rulesOf(g).drops?`<span class="badge">持ち駒 ${g.hands[op].length}枚</span>`:''}${g.turn===op?'<span class="badge turn">考え中</span>':''}`)}
     ${boardHTML(g,me,{sel:O.sel,interactive:myTurn})}
     ${playerRow(myUid,'あなた',me,g.turn===me?'<span class="badge turn">あなたの番</span>':'')}
     ${handHTML(g,me,O.sel,myTurn)}
     ${status}${err}
-    <div class="row"><span class="spacer"></span><button class="btn ${O.resignArm?'danger':'ghost'} small" data-act="oresign">${O.resignArm?'もう一度押すと投了':'投了'}</button></div>${rulesHTML()}`;
+    <div class="row"><span class="muted">${rulesText(rulesOf(g))}</span><span class="spacer"></span><button class="btn ${O.resignArm?'danger':'ghost'} small" data-act="oresign">${O.resignArm?'もう一度押すと投了':'投了'}</button></div>${rulesHTML()}`;
 }
 async function copyText(text,el){
   try{await navigator.clipboard.writeText(text);el.textContent='コピーしました'}
@@ -443,6 +462,11 @@ async function onlineAct(a,el){
   if(a==='leave'){leaveRoom();return}
   if(a==='copy')return copyText(O.code,el);
   if(a==='copyLink')return copyText(roomLink(O.code),el);
+  if(a==='setTime'||a==='setDrops'){
+    const g=O.game;if(!g||g.phase!=='setup'||O.seat!==0)return;
+    const r=rulesOf(g);if(a==='setTime')r.time=+el.dataset.v;else r.drops=el.dataset.v==='1';
+    await saveGame({...clone(g),rules:r,time:[r.time,r.time]});render();return;
+  }
   if(a==='swap'){const i=+el.dataset.i,ar=O.draft;if(O.sel&&O.sel.i!=null){[ar[O.sel.i],ar[i]]=[ar[i],ar[O.sel.i]];O.sel=null}else O.sel={i}}
   else if(a==='preset'){O.draft=PRESETS[+el.dataset.k].a.slice();O.sel=null}
   else if(a==='shuffle'){shuffle(O.draft);O.sel=null}
@@ -467,7 +491,7 @@ async function onlineAct(a,el){
     const {error}=await sb.from('jinro_seats').update({ready:false}).eq('code',O.code);
     if(error)O.err=errText(error);
     for(const s of [0,1])if(O.players[s])O.players[s]={...O.players[s],ready:false};
-    await saveGame(blankGame(O.code,O.game.moveNo+1));
+    await saveGame(blankGame(O.code,O.game.moveNo+1,rulesOf(O.game)));
     O.busy=false;
   }
   render();
@@ -478,11 +502,11 @@ setInterval(()=>{if(S.screen==='online'&&O.code)fetchAll()},15000);
 /* ===== clocks ===== */
 let lastT=null;
 function clockState(p){
-  if(S.screen==='local'&&L&&L.G){const G=L.G;return{main:G.time[p],byo:p===G.turn?L.byo:BYO,on:p===G.turn&&(L.phase==='play'||L.phase==='result')}}
+  if(S.screen==='local'&&L&&L.G){const G=L.G,tot=rulesOf(G).time;if(!tot)return null;return{main:G.time[p],tot,byo:p===G.turn?L.byo:BYO,on:p===G.turn&&(L.phase==='play'||L.phase==='result')}}
   if(S.screen==='online'&&O.game&&O.game.time){
-    const g=O.game;let rem=g.time[p],byo=BYO;const on=g.phase==='play'&&p===g.turn;
+    const g=O.game,tot=rulesOf(g).time;if(!tot)return null;let rem=g.time[p],byo=BYO;const on=g.phase==='play'&&p===g.turn;
     if(on){rem-=(Date.now()-O.seenAt)/1000;if(rem<0){byo=BYO+rem;rem=0}}
-    return{main:Math.max(0,rem),byo,on};
+    return{main:Math.max(0,rem),tot,byo,on};
   }
   return null;
 }
@@ -491,12 +515,12 @@ function updateClocks(){
     const p=+el.dataset.clock,st=clockState(p);if(!st)return;
     let txt;if(st.main>0){const s=Math.ceil(st.main);txt=`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`}else txt=`秒読み ${Math.max(0,Math.ceil(st.byo))}`;
     el.textContent=txt;el.classList.toggle('byo',st.main<=0);
-    const m=document.querySelector(`[data-meter="${p}"]`);if(m)m.style.width=(st.main>0?st.main/MAIN*100:Math.max(0,st.byo)/BYO*100)+'%';
+    const m=document.querySelector(`[data-meter="${p}"]`);if(m)m.style.width=(st.main>0?st.main/st.tot*100:Math.max(0,st.byo)/BYO*100)+'%';
     const box=document.querySelector(`[data-ck="${p}"]`);if(box)box.classList.toggle('on',st.on);
   });
 }
 setInterval(()=>{
-  if(S.screen==='local'&&L&&L.phase==='play'){
+  if(S.screen==='local'&&L&&L.phase==='play'&&rulesOf(L.G).time>0){
     const now=performance.now();if(lastT==null){lastT=now;return}
     let dt=(now-lastT)/1000;lastT=now;const G=L.G,t=G.turn;
     if(G.time[t]>0){const u=Math.min(dt,G.time[t]);G.time[t]-=u;dt-=u}
