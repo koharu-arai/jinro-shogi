@@ -324,7 +324,8 @@ details.rules summary{cursor:pointer;padding:12px 0;font-weight:800}
 /* =====================================================================
    v3 テーマ:月夜の村(豪華版)
    ===================================================================== */
-body{background:#241a5c;overflow-x:hidden}
+body{background:#241a5c}
+html{overflow-x:hidden}
 #app{position:relative;z-index:1}
 #app.hasnav{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 
@@ -772,3 +773,11 @@ input,textarea,.code{-webkit-user-select:text;user-select:text;-webkit-touch-cal
   -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 14%,#000 86%,transparent 100%);filter:none}
 .sl-art:has(.fullbody.hasimg) .spk{display:none}
 .sl-bg{filter:blur(22px) brightness(.42) saturate(1.1)}
+/* 点検での修正 */
+.top .ttlh{font-size:22px;letter-spacing:.04em}
+.clocks.notime{display:grid;justify-items:center;gap:0;flex:1;padding:6px 10px;border-radius:14px;background:rgba(20,12,60,.6);border:1px solid var(--goldline)}
+.clocks.notime .vsrow{display:flex;gap:10px;align-items:baseline;font-size:15px}.clocks.notime i{font-style:normal;font-family:var(--font-d);color:var(--gold2);font-size:13px}
+.clocks.notime small{font-size:10px;color:var(--mute)}
+.status b{display:inline-block;margin-right:6px;font-size:11px;padding:0 7px;border-radius:999px;background:rgba(255,255,255,.14)}
+.status.mine{border-left-color:var(--gold2);opacity:.85}
+.tabs{margin-bottom:4px}

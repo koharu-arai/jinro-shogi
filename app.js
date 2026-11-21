@@ -409,6 +409,7 @@ function boardHTML(G,v,{sel=null,interactive=false,reveal=false,looks=[{},{}],wa
       inner=fake?tile(P.fake,{enemy:true,look}):vis?tile(P.type,{enemy:!mine,wolf:P.revealed?'open':'hid',look,hurt:P.hurt}):tile(null,{hidden:true,look});
       if(P.charm>0)inner+=`<span class="cbadge" title="恋の矢で動けない">💘${P.charm}</span>`;
       if(peek&&!mine&&!reveal)inner+='<span class="pbadge" title="探偵で調べた駒">🔍</span>';
+      if(mine&&P.fake)inner+='<span class="pbadge" title="王様のふりをしている">👑</span>';
     }
     h+=`<button class="${cls}" data-act="cell" data-r="${dr}" data-c="${dc}" ${interactive?'':'tabindex="-1"'} aria-label="${dr+1}段目 ${dc+1}列目">${inner}</button>`;
   }
@@ -428,7 +429,7 @@ function handHTML(G,v,sel,enabled,look){
   return`<div class="hand" aria-label="あなたの持ち駒">${h.length?h.map((t,i)=>`<button class="handbtn${sel&&sel.hand===i?' sel':''}" data-act="hand" data-i="${i}" ${enabled?'':'disabled'}>${tile(t,{look})}</button>`).join(''):'<span class="empty">持ち駒なし</span>'}</div>`;
 }
 function clocksHTML(me,op,meLabel,opLabel,G){
-  if(G&&!rulesOf(G).time)return`<div class="clocks"><div class="clk me"><span class="who">${meLabel}</span><b class="vsname">vs</b></div><div class="clk op"><span class="who">${opLabel}</span><b class="vsname">時間なし</b></div></div>`;
+  if(G&&!rulesOf(G).time)return`<div class="clocks notime"><span class="vsrow"><b>${meLabel}</b><i>VS</i><b>${opLabel}</b></span><small>持ち時間なし</small></div>`;
   return`<div class="clocks"><div class="clk me" data-ck="${me}"><span class="who">${meLabel}</span><b data-clock="${me}">2:00</b><span class="meter"><i data-meter="${me}"></i></span></div>
   <div class="clk op" data-ck="${op}"><span class="who">${opLabel}</span><b data-clock="${op}">2:00</b><span class="meter"><i data-meter="${op}"></i></span></div></div>`;
 }
@@ -620,7 +621,7 @@ function renderLocal(){
   }
   if(L.phase==='setup'){
     const pool=[...SWAP_BASE,...(L.rules.chars?NEWC:[])];
-    return`<div class="side"><span class="who">${L.cpu?'あなた':NAME[L.setupP]}の配置</span><span class="badge">2マスを順にタップで入れ替え</span></div>
+    return`<div class="top"><button class="btn ghost small" data-act="home">退出</button><h2 class="ttlh">${L.cpu?'あなた':NAME[L.setupP]}の配置</h2></div><div class="side"><span class="badge">2マスを順にタップで入れ替え</span></div>
       ${setupHTML(L.setup[L.setupP],L.sel?.i,pool,localLooks()[L.setupP],L.msg)}${setupControls()}<button class="btn orange" data-act="confirm">この配置で決定</button>${rulesHTML()}`;
   }
   const G=L.G;
@@ -638,7 +639,8 @@ function renderLocal(){
     <div class="side"><span class="who">${pName(v)}</span>${G.turn===v?'<span class="badge turn">あなたの番</span>':''}</div>
     ${play?abilityBar(G,L.sel):''}
     ${handHTML(G,v,L.sel,play,localLooks()[v])}
-    ${(play||L.cpu)&&L.notice?`<div class="status${L.noticeAlert?' alert':''}">${esc(L.notice)}</div>`:''}
+    ${L.cpu&&L.myRes?`<div class="status mine"><b>あなた</b>${esc(L.myRes)}</div>`:''}
+    ${(play||L.cpu)&&L.notice?`<div class="status${L.noticeAlert?' alert':''}">${L.cpu&&L.myRes?'<b>CPU</b>':''}${esc(L.notice)}</div>`:''}
     ${L.cpu&&G.turn===1&&L.phase==='play'?'<div class="status wait">CPUが考えています…</div>':''}
     ${play||L.cpu?`<div class="row"><span class="spacer"></span><button class="btn ${L.resignArm?'danger':'ghost'} small" data-act="resign">${L.resignArm?'もう一度押すと投了':'投了'}</button></div>${rulesHTML()}`
       :`<div class="sheet"><p>${esc(L.out.res)}</p><button class="btn orange" data-act="pass">${again?'続けてもう1手指す':NAME[op]+'に渡す'}</button></div><div style="height:140px"></div>`}`;
@@ -663,7 +665,7 @@ function localAct(a,el){
     if(d.act==='sel')L.sel=d.sel;
     else if(L.cpu){if(G.turn!==0)return;const out=d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='ab'?applyAbility(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c);L.sel=null;L.byo=BYO;
       if(G.winner!=null){cpuOver();return}
-      const n=nextTurn(G);G.turn=n;L.notice=out.res+(n===0?' てるてるの力で、もう1手続けて指せます(移動だけ)。':'');L.noticeAlert=!!out.alert;if(n===1)setTimeout(cpuTurn,0)}
+      const n=nextTurn(G);G.turn=n;L.myRes=out.res;L.notice=n===0?'てるてるの力で、もう1手続けて指せます(移動だけ)。':'';L.noticeAlert=!!out.alert;if(n===1)setTimeout(cpuTurn,0)}
     else{const out=d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='ab'?applyAbility(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c);if(G.winner==null){const save=G.skip,nc=G.noCap;const n=nextTurn(G);G.skip=save;G.noCap=nc;out.same=n===G.turn}localEnd(out)}
   }
   else if(a==='pass'){const G=L.G;const n=nextTurn(G);const same=n===G.turn;G.turn=n;L.notice=same?'てるてるの力で、もう1手続けて指せます(移動だけ。駒は取れません)。':L.out.note;L.noticeAlert=!!L.out.alert;if(same){L.phase='play'}else{L.cover={p:G.turn,next:'play'};L.phase='cover'}}
@@ -1182,7 +1184,7 @@ function renderGacha(){
       <button class="btn ghost gbtn" data-act="pull" data-n="1" ${busy||c<COST.single?'disabled':''}><b>1回引く</b><small>${coinIcon}${COST.single}</small></button>
       <button class="btn orange gbtn" data-act="pull" data-n="10" ${busy||c<COST.ten?'disabled':''}><b>10連ガチャ</b><small>${coinIcon}${COST.ten}・SR以上1つ確定</small></button>
     </div>
-    ${c<COST.single?`<p class="muted">コインはログインボーナスとデイリーミッションで貯まります。</p>`:''}
+    ${c<COST.single?`<p class="muted">コインはログインボーナス・デイリーミッション・CPU戦の勝利で貯まります。</p>`:''}
     ${M.err?`<p class="err">${esc(M.err)}</p>`:''}
     <div class="card tokens"><div class="row"><span class="tkn" aria-hidden="true">★</span><b>特別コイン ${tk}/${TOKEN_COST}枚</b></div>
       <p class="muted">持っているキャラが出ると特別コインがもらえます(SSR ${TOKEN_REFUND.SSR}枚・LR ${TOKEN_REFUND.LR}枚)。${TOKEN_COST}枚で、好きなSSRキャラ1体と交換できます。</p>
@@ -1316,8 +1318,9 @@ function renderCollection(){
   const preview=`<div class="card preview"><div class="prevrow">${['king','wolf','seer'].map(t=>tile(t,{look})).join('')}${tile(null,{hidden:true,look})}</div>
     <div class="prevname">${avatar(avOf(O.uid),'sm')}${titleTag(st.title)}<b>${esc(myName())}</b><p class="muted">いまの見た目(右端が相手から見える駒裏)</p></div></div>`;
   const help={char:'持っている新キャラは、オンライン対戦の編成で使えます。',skin:'自分の駒の見た目が変わります。',frame:'自分の駒の枠の色が変わります。',wolf:'人狼の絵の色が変わります。',back:'相手から見える「？」の駒の柄が変わります。',title:'名前の前に表示されます。金色・虹色の称号はアチーブメント限定です。',stamp:'対戦中に送れます。'}[tab];
-  return`${backBar('コレクション','home')}${preview}${tab==='char'?rankCard():''}
+  return`${backBar('コレクション','home')}
     <div class="tabs" role="tablist">${TABS.map(([k,l])=>`<button class="tab${k===tab?' on':''}" role="tab" aria-selected="${k===tab}" data-act="tab" data-tab="${k}">${l}</button>`).join('')}</div>
+    ${['skin','frame','wolf','back','title'].includes(tab)?preview:''}${tab==='char'?rankCard():''}
     <p class="muted">${help} ${cnt}/${list.length} 所持</p>
     <div class="igrid">${list.map(i=>{
       const o=isOwned(i),eq=equipped(i),canEq=o&&['skin','frame','wolf','back','title'].includes(tab);
