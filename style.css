@@ -535,3 +535,11 @@ body{background:#140c3c}
 .modal.gmodal{z-index:45;background:rgba(10,6,36,.82)}
 .msvg .body{fill:#5a32c8;stroke:#1a0f45}
 .msvg .mlabel{fill:#ffe08a}
+/* 下のプカプカ(ホタル)をやめて、煙と低い霧に */
+.fireflies{display:none}
+.smoke{filter:blur(1.2px)}
+.puff{fill:#cfc6ec;animation:puff2 6.5s ease-out infinite}
+@keyframes puff2{0%{opacity:0;transform:translate(0,0) scale(.5)}12%{opacity:.6}60%{opacity:.35}100%{opacity:0;transform:translate(16px,-52px) scale(3.2)}}
+.mist i{position:absolute;left:-30%;width:160%;height:70px;bottom:min(6vh,40px);border-radius:50%;background:radial-gradient(closest-side,rgba(200,190,240,.22),transparent);filter:blur(6px);animation:mist 40s linear infinite}
+.mist i:nth-child(2){bottom:min(12vh,90px);height:50px;opacity:.7;animation-duration:60s;animation-direction:reverse}
+@keyframes mist{0%{transform:translateX(-10%)}50%{transform:translateX(10%)}100%{transform:translateX(-10%)}}

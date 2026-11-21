@@ -32,7 +32,7 @@ houses.forEach(([x, w, h, r, ch], k) => {
   if (ch != null) {
     const cx = x + w * ch - 3, cy = top - r * (1 - Math.abs(ch - .5) * 2) - 4;
     hs += `<rect x="${cx}" y="${cy}" width="7" height="${top - cy + 2}" class="hw"/>`;
-    for (let p = 0; p < 3; p++) smoke += `<circle class="puff" cx="${cx + 3.5}" cy="${cy - 2}" r="3.2" style="animation-delay:${(p * 1.4 + k * .37).toFixed(2)}s"/>`;
+    for (let p = 0; p < 5; p++) smoke += `<circle class="puff" cx="${cx + 3.5}" cy="${cy - 2}" r="3.6" style="animation-delay:${(p * 1.3 + k * .41).toFixed(2)}s"/>`;
   }
   // 窓(灯りはランダムに点いたり消えたり)
   const n = w > 32 ? 2 : 1;
@@ -63,7 +63,7 @@ root.innerHTML = `
     ${trees}${hs}<g class="smoke">${smoke}</g>
     <rect x="0" y="${GROUND}" width="400" height="${140 - GROUND}" class="ground"/>
   </svg>
-  <div class="fireflies">${Array.from({ length: 10 }, () => `<i style="left:${rnd(5, 95).toFixed(0)}%;bottom:${rnd(4, 22).toFixed(0)}%;animation-delay:${rnd(0, 6).toFixed(1)}s;animation-duration:${rnd(5, 9).toFixed(1)}s"></i>`).join('')}</div>`;
+  <div class="mist"><i></i><i></i></div>`;
 
 // 狼がランダムに走り抜ける(左右どちらからも)
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
