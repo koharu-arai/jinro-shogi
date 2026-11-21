@@ -169,6 +169,52 @@ function biteBar(G,sel){
   return`<div class="bitebar"><button class="btn ${sel.bite?'danger':'orange'} small" data-act="bite" ${n?'':'disabled'}>${sel.bite?'噛みつきをやめる':'🦇 噛みつく(1局に1回)'}</button><span class="muted">${n?(sel.bite?'噛みつく相手の駒をタップ':'隣の相手の駒を味方に変える'):'隣に相手の駒がいません'}</span></div>`;
 }
 
+
+/* ===== 音(ガチャはマル制作のmp3、対局の音はその場で合成) ===== */
+const SND={on:store.get('jinro-sound')!=='off',buf:{},ctx:null};
+const SFX_FILES=['gacha_lever','capsule_drop','capsule_open','fanfare_ssr','fanfare_lr'];
+function sfx(name){
+  if(!SND.on)return;
+  try{let a=SND.buf[name];if(!a){a=SND.buf[name]=new Audio(`sfx/${name}.mp3`);a.preload='auto'}
+    const p=a.paused?a:a.cloneNode();p.volume=.7;p.currentTime=0;p.play().catch(()=>{})}catch(e){}
+}
+function sfxStop(name){const a=SND.buf[name];if(a){try{a.pause();a.currentTime=0}catch(e){}}}
+function actx(){if(!SND.ctx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;SND.ctx=new C()}if(SND.ctx.state==='suspended')SND.ctx.resume();return SND.ctx}
+function tone(f,t0,dur,{type='sine',vol=.25,to=null}={}){
+  const c=actx();if(!c)return;const o=c.createOscillator(),g=c.createGain(),t=c.currentTime+t0;
+  o.type=type;o.frequency.setValueAtTime(f,t);if(to)o.frequency.exponentialRampToValueAtTime(to,t+dur);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.008);g.gain.exponentialRampToValueAtTime(.0005,t+dur);
+  o.connect(g).connect(c.destination);o.start(t);o.stop(t+dur+.02);
+}
+function knock(t0,f=900,vol=.5){ // 駒を置く「コッ」
+  const c=actx();if(!c)return;const t=c.currentTime+t0,n=c.sampleRate*.06,b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,4);
+  const src=c.createBufferSource(),bp=c.createBiquadFilter(),g=c.createGain();src.buffer=b;bp.type='bandpass';bp.frequency.value=f;bp.Q.value=4;g.gain.value=vol;
+  src.connect(bp).connect(g).connect(c.destination);src.start(t);tone(f/5,t0,.09,{vol:.18});
+}
+function play(kind){
+  if(!SND.on)return;
+  if(kind==='move'||kind==='drop')knock(0);
+  else if(kind==='capture'){knock(0,1100,.6);tone(660,.04,.12,{type:'triangle',vol:.16});tone(990,.1,.16,{type:'triangle',vol:.14})}
+  else if(kind==='counter'){knock(0,500,.7);tone(220,.02,.35,{type:'sawtooth',vol:.12,to:110});tone(233,.02,.35,{type:'sawtooth',vol:.08,to:116})}
+  else if(kind==='bite'){tone(880,0,.12,{type:'square',vol:.08,to:440});tone(300,.1,.3,{type:'sawtooth',vol:.1,to:150})}
+  else if(kind==='win')[523,659,784,1047].forEach((f,i)=>tone(f,i*.12,.5,{type:'triangle',vol:.2}));
+  else if(kind==='lose')[392,330,262,196].forEach((f,i)=>tone(f,i*.16,.5,{type:'sine',vol:.2}));
+  else if(kind==='stamp')tone(700,0,.12,{vol:.18,to:1200});
+  else if(kind==='tap')tone(520,0,.06,{type:'triangle',vol:.08});
+}
+let sndKey,sndWin=null;
+function soundCheck(){
+  let g=null,key,me=0;
+  if(S.screen==='local'&&L&&L.G){g=L.G;key=g.last;me=L.cpu?0:-1}
+  else if(S.screen==='online'&&O.game&&O.game.phase!=='setup'){g=O.game;key=g.moveNo;me=O.watch?-1:O.seat}
+  if(!g){sndKey=undefined;sndWin=null;return}
+  if(sndKey!==undefined&&key!==sndKey&&g.last)play(g.last.kind);
+  if(g.winner!=null&&sndWin==null&&sndKey!==undefined)setTimeout(()=>play(me<0||g.winner===me?'win':'lose'),350);
+  sndKey=key;sndWin=g.winner;
+}
+function soundBtn(){return`<button class="sndbtn" data-act="toggleSound" aria-label="音 ${SND.on?'オン':'オフ'}" aria-pressed="${SND.on}">${SND.on?'<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>':'<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="m17 9 5 6M22 9l-5 6"/></svg>'}</button>`}
+
 /* ===== CPU(相手の駒の正体は見ない。見えない駒は「ありそうな駒」を何通りも仮定して読む) ===== */
 const CPU_LV={easy:{nm:'やさしい',coin:3,depth:1,k:3,noise:3,rand:.35},normal:{nm:'ふつう',coin:5,depth:2,k:6,noise:.8,rand:0},hard:{nm:'つよい',coin:10,depth:3,k:10,noise:.1,rand:0}};
 const VAL={king:0,wolf:7,seer:4,knight:4,hunter:4,villager:2,fox:7,thief:5,vampire:6,cursed:5,medium:3,tough:5,nekomata:4,teru:3};
@@ -688,7 +734,7 @@ async function writeEnd(winner,reason){
 /* ---- in-game stamps ---- */
 function showBubble(uid,item){
   const it=ITEM[item];if(!it)return;
-  O.bubbles[uid]={text:it.name,at:Date.now()};render();
+  O.bubbles[uid]={text:it.name,at:Date.now()};play('stamp');render();
   setTimeout(()=>{const b=O.bubbles[uid];if(b&&Date.now()-b.at>=3900){delete O.bubbles[uid];render()}},4000);
 }
 async function sendStamp(item){
@@ -875,7 +921,7 @@ function headerBar(){
   const st=M.st;
   return`<header class="hbar"><button class="avbtn" data-act="openAvatar" aria-label="アイコンを変える">${avatar(avOf(O.uid),'lg')}<i>変更</i></button>
     <button class="hname" data-act="editName" aria-label="名前を変更">${titleTag(st?.title)}<b>${esc(myName())}</b><span class="stat">${statText(O.uid)}</span></button>
-    <button class="coin" data-act="go" data-to="gacha" aria-label="コイン ${st?st.coins:0}枚">${coinIcon}<b>${st?st.coins:'…'}</b></button></header>`;
+    ${soundBtn()}<button class="coin" data-act="go" data-to="gacha" aria-label="コイン ${st?st.coins:0}枚">${coinIcon}<b>${st?st.coins:'…'}</b></button></header>`;
 }
 function achReady(){if(!M.st||!M.st.stats)return 0;const c=new Set(M.st.ach_claimed||[]);return ACHIEVEMENTS.filter(a=>!c.has(a.id)&&(M.st.stats[a.stat]||0)>=a.goal).length}
 function missionsReady(){if(!M.st)return 0;const c=new Set(M.st.claimed);return MISSIONS.filter(m=>!c.has(m.id)&&(M.st.missions[m.id]||0)>0).length+achReady()}
@@ -949,7 +995,7 @@ function navBar(){
   const cur=NAV_OF[S.screen],badge={missions:missionsReady(),friends:friendBadge()};
   return`<nav class="bnav" aria-label="メニュー">${NAV.map(([k,l,ic])=>`<button class="bn${cur===k?' on':''}" data-act="go" data-to="${k}" ${cur===k?'aria-current="page"':''}><span class="bni">${UI[ic]}</span><span class="bnl">${l}</span>${badge[k]?`<i class="dot">${badge[k]}</i>`:''}</button>`).join('')}</nav>`;
 }
-function backBar(t,back){return`<div class="top">${back?`<button class="btn ghost small" data-act="go" data-to="${back}">‹ 戻る</button>`:''}<h2 class="ttlh">${t}</h2><span class="spacer"></span><span class="coin static">${coinIcon}<b>${M.st?M.st.coins:'…'}</b></span></div>`}
+function backBar(t,back){return`<div class="top">${back?`<button class="btn ghost small" data-act="go" data-to="${back}">‹ 戻る</button>`:''}<h2 class="ttlh">${t}</h2><span class="spacer"></span>${soundBtn()}<span class="coin static">${coinIcon}<b>${M.st?M.st.coins:'…'}</b></span></div>`}
 
 /* ---- avatar ---- */
 function avatarModal(){
@@ -1068,7 +1114,7 @@ const RANK=r=>RARITY_ORDER.indexOf(r);
 async function pull(n){
   if(M.anim&&M.anim.phase!=='open')return;
   M.err='';const t0=Date.now();
-  M.anim={phase:'turn',n,results:null};render();
+  M.anim={phase:'turn',n,results:null};render();sfx('gacha_lever');
   let r;
   try{r=await rpc('jinro_gacha',{p_count:n,p_pick:todayBanner()==='S'?M.pick:null})}
   catch(e){M.anim=null;M.err=e.message;render();return}
@@ -1077,8 +1123,8 @@ async function pull(n){
   const A={phase:'turn',n,results:r.results,best,kakutei:(best==='LR'||best==='SSR')?best:null};
   await new Promise(res=>setTimeout(res,Math.max(0,1500-(Date.now()-t0))));
   if(M.anim?.phase!=='turn')return;   // スキップ済み
-  if(A.kakutei){A.phase='kakutei';M.anim=A;render();await new Promise(res=>setTimeout(res,1700));if(M.anim!==A||A.phase!=='kakutei')return}
-  A.phase='drop';M.anim=A;render();
+  if(A.kakutei){A.phase='kakutei';M.anim=A;render();sfx(A.kakutei==='LR'?'fanfare_lr':'fanfare_ssr');A.fanfare=true;await new Promise(res=>setTimeout(res,1700));if(M.anim!==A||A.phase!=='kakutei')return}
+  A.phase='drop';M.anim=A;render();sfx('capsule_drop');
 }
 async function exchange(id){
   try{const r=await rpc('jinro_exchange',{p_item:id});M.st.tokens=r.tokens;M.st.items.push(id);toast(`${ITEM[id].name}を手に入れました！`)}
@@ -1218,6 +1264,7 @@ function render(){
   if(M.anim&&M.anim.results!==undefined&&scr==='gacha')h+=gachaOverlay();
   if(M.toast)h+=`<div class="toast" role="status">${esc(M.toast)}</div>`;
   app.innerHTML=h;
+  soundCheck();
   if(keep){const i=document.getElementById(keep.id);if(i){i.value=keep.v;i.focus()}}
   updateClocks();
 }
@@ -1236,7 +1283,7 @@ async function metaAct(a,el){
   if(a==='saveAvatar')return saveAvatar();
   if(a==='pull')return pull(+el.dataset.n);
   if(a==='gpick'){M.pick=el.dataset.id;M.err='';return render()}
-  if(a==='openCaps'||a==='skipGacha'){if(M.anim&&M.anim.results){M.anim.phase='open';render()}return}
+  if(a==='openCaps'||a==='skipGacha'){if(M.anim&&M.anim.results){const A=M.anim;sfxStop('gacha_lever');A.phase='open';render();sfx('capsule_open');if(A.kakutei&&!A.fanfare){A.fanfare=true;setTimeout(()=>sfx(A.kakutei==='LR'?'fanfare_lr':'fanfare_ssr'),250)}}return}
   if(a==='closeGacha'){M.anim=null;render();return}
   if(a==='exchange')return exchange(el.dataset.id);
   if(a==='claimMission'){try{const r=await rpc('jinro_claim_mission',{p_mission:el.dataset.id});M.st.coins=r.coins;M.st.claimed.push(el.dataset.id);toast('+10コイン')}catch(e){M.err=e.message;render()}return}
@@ -1255,6 +1302,7 @@ document.getElementById('app').addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const a=el.dataset.act;
   if(a==='home'){const wasGame=S.screen==='online'||S.screen==='local';if(S.screen==='online')leaveRoom(true);S.screen=wasGame?'battle':'home';render();refreshState();window.scrollTo(0,0);return}
   if(a==='local'){if(S.screen==='online')leaveRoom(true);localNew();S.screen='local';render();return}
+  if(a==='toggleSound'){SND.on=!SND.on;store.set('jinro-sound',SND.on?'on':'off');if(SND.on){actx();play('tap')}render();return}
   if(a==='cpu'){if(S.screen==='online')leaveRoom(true);localNew({level:el.dataset.lv});S.screen='local';render();window.scrollTo(0,0);return}
   if(a==='online'){S.screen='online';O.err='';render();return}
   if(S.screen==='collection'&&M.deck&&['swap','pick','preset','shuffle'].includes(a))return deckAct(a,el);

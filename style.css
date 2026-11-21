@@ -571,3 +571,7 @@ body{background:#140c3c}
 .lvbtn:active{transform:translateY(1px)}
 .card.reward{justify-items:center;text-align:center;background:linear-gradient(180deg,rgba(255,215,120,.28),rgba(34,22,90,.85))}
 .card.reward b{font-family:var(--font-m);font-size:22px;color:var(--gold1)}
+.sndbtn{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--goldline);background:rgba(10,6,40,.4);display:grid;place-items:center;color:var(--gold1);padding:0}
+.sndbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sndbtn[aria-pressed="false"]{color:var(--mute)}
+.hbar .sndbtn{margin-left:auto}
