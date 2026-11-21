@@ -710,3 +710,40 @@ input,textarea,.code{-webkit-user-select:text;user-select:text;-webkit-touch-cal
 .sl-piece{display:flex;gap:10px;align-items:center;text-align:left;width:100%;background:rgba(10,6,40,.35);border-radius:14px;padding:8px;box-sizing:border-box;--cell:56px}
 .sl-piece b{font-size:13px;color:var(--gold1)}.sl-piece p{margin:2px 0 0;font-size:12px;line-height:1.6}
 .swipehint{margin-top:-6px;font-size:12px}
+/* ===== キャラの絵を動かす ===== */
+.sl-art{perspective:700px;cursor:pointer}
+.sl-chara{position:absolute;inset:0;display:grid;place-items:center;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .25s ease-out;z-index:2}
+.sl-chara .fullbody,.sl-chara .sl-fallback{animation:breathe 3.6s ease-in-out infinite;transform-origin:50% 90%}
+.sl-chara .fullbody{position:absolute;inset:6% 4% 4%}
+@keyframes breathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-7px) scale(1.025)}}
+.sl-shadow{position:absolute;left:30%;right:30%;bottom:6%;height:12px;border-radius:50%;background:rgba(40,20,90,.28);filter:blur(4px);animation:shadow 3.6s ease-in-out infinite;z-index:1}
+@keyframes shadow{0%,100%{transform:scaleX(1);opacity:.9}50%{transform:scaleX(.82);opacity:.55}}
+/* タップでぴょんと跳ねる */
+.sl-chara.hop .fullbody,.sl-chara.hop .sl-fallback{animation:hop .55s cubic-bezier(.3,1.6,.5,1),breathe 3.6s ease-in-out .55s infinite}
+@keyframes hop{0%{transform:translateY(0) scale(1)}30%{transform:translateY(-26px) scale(1.06,.96)}60%{transform:translateY(0) scale(1.04,.95)}100%{transform:translateY(0) scale(1)}}
+/* レア度のオーラ */
+.aura{position:absolute;width:78%;aspect-ratio:1;border-radius:50%;z-index:0;filter:blur(18px);opacity:.75;animation:aura 6s linear infinite}
+.aura.a-LR{background:conic-gradient(#ff6fae,#ffb347,#fff07a,#6fffd2,#6fa8ff,#c37bff,#ff6fae)}
+.aura.a-SSR{background:radial-gradient(circle,rgba(255,214,110,.95),rgba(255,180,60,.35) 55%,transparent 72%);animation:auraP 3s ease-in-out infinite}
+@keyframes aura{to{transform:rotate(360deg)}}
+@keyframes auraP{0%,100%{transform:scale(.9);opacity:.6}50%{transform:scale(1.08);opacity:.9}}
+/* きらきら */
+.sl-art .spk{position:absolute;width:10px;height:10px;z-index:3;pointer-events:none;opacity:0;background:radial-gradient(circle,#fff 0 18%,transparent 20%),conic-gradient(from 45deg,transparent 0 10%,#fff 10% 15%,transparent 15% 35%,#fff 35% 40%,transparent 40% 60%,#fff 60% 65%,transparent 65% 85%,#fff 85% 90%,transparent 90%);animation:spark 2.4s ease-in-out infinite}
+.slide.r-SSR .spk{filter:drop-shadow(0 0 3px #ffc552)}.slide.r-LR .spk{filter:drop-shadow(0 0 4px #ff9be0) hue-rotate(0deg)}
+.sl-art .spk:nth-of-type(1){left:14%;top:18%;animation-delay:0s}.sl-art .spk:nth-of-type(2){left:80%;top:22%;animation-delay:.5s}
+.sl-art .spk:nth-of-type(3){left:22%;top:70%;animation-delay:1s}.sl-art .spk:nth-of-type(4){left:74%;top:66%;animation-delay:1.5s}
+.sl-art .spk:nth-of-type(5){left:50%;top:10%;animation-delay:1.9s}.sl-art .spk:nth-of-type(6){left:8%;top:44%;animation-delay:.8s}
+.sl-art .spk:nth-of-type(7){left:88%;top:46%;animation-delay:1.3s}.sl-art .spk:nth-of-type(8){left:60%;top:82%;animation-delay:2.1s}
+@keyframes spark{0%,100%{opacity:0;transform:scale(.3) rotate(0deg)}40%{opacity:1;transform:scale(1.4) rotate(45deg)}70%{opacity:0;transform:scale(.6) rotate(90deg)}}
+/* 光がすっと流れる */
+.sl-shine{position:absolute;inset:0;z-index:4;pointer-events:none;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.55) 48%,transparent 60%);background-size:260% 100%;animation:slshine 4.5s ease-in-out infinite}
+@keyframes slshine{0%,60%{background-position:130% 0}100%{background-position:-130% 0}}
+/* 中央に来たキャラが登場する */
+.slide .sl-chara{opacity:.55;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) scale(.9)}
+.slide.on .sl-chara{opacity:1;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) scale(1);transition:transform .45s cubic-bezier(.2,1.4,.4,1),opacity .3s}
+.slide h3,.slide .sl-alias,.slide .sl-story,.slide .sl-piece{transition:opacity .4s,transform .4s}
+.slide:not(.on) h3,.slide:not(.on) .sl-alias,.slide:not(.on) .sl-story,.slide:not(.on) .sl-piece{opacity:.5;transform:translateY(6px)}
+.slide.on .sl-piece .pc{animation:breathe 3s ease-in-out infinite}
+/* キャラ詳細の全身イラストもゆっくり呼吸 */
+.cfull .fullbody img{animation:breathe 3.8s ease-in-out infinite;transform-origin:50% 90%}
+@media (prefers-reduced-motion: reduce){.sl-chara *,.aura,.spk,.sl-shine,.sl-shadow,.cfull .fullbody img{animation:none!important}}

@@ -1139,11 +1139,27 @@ function todayBanner(){if(M.st?.banner)return M.st.banner;const d=new Date(Date.
 const inBanner=(i,k)=>i.kind==='char'&&(i.rarity==='LR'?i.banner===k:k==='S'?i.banner==='S':!i.banner);
 const bannerItems=k=>ITEMS.filter(i=>inBanner(i,k));
 // 出るキャラを1体ずつスライドで見る
+// スライド:画面の中央に来たキャラを登場させ、指でなぞると少し傾く
+let slideIO=null;
+function setupSlides(){
+  const box=document.querySelector('.slides');if(!box)return;
+  if(slideIO)slideIO.disconnect();
+  if(!('IntersectionObserver' in window)){box.querySelectorAll('.slide').forEach(x=>x.classList.add('on'));return}
+  slideIO=new IntersectionObserver(es=>es.forEach(e=>e.target.classList.toggle('on',e.intersectionRatio>.6)),{root:box,threshold:[0,.6,1]});
+  box.querySelectorAll('.slide').forEach(x=>slideIO.observe(x));
+}
+function tiltArt(e){
+  const art=e.target.closest&&e.target.closest('.sl-art');if(!art)return;
+  const r=art.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
+  art.style.setProperty('--rx',(-y*10).toFixed(1)+'deg');art.style.setProperty('--ry',(x*12).toFixed(1)+'deg');
+}
+document.addEventListener('pointermove',tiltArt,{passive:true});
+document.addEventListener('pointerleave',e=>{const a=e.target.closest&&e.target.closest('.sl-art');if(a){a.style.removeProperty('--rx');a.style.removeProperty('--ry')}},true);
 function charSlides(list){
   return`<div class="slides" aria-label="このガチャで出るキャラ">${list.map((i,n)=>{const k=i.char,pf=PROFILE[k]||{},own=owned().has(i.id);
     return`<article class="slide r-${i.rarity}">
       <div class="sl-top"><span class="rar big r-${i.rarity}">${i.rarity}</span><small class="sl-n">${n+1}/${list.length}</small>${own?'<span class="ownd2">所持</span>':''}</div>
-      <div class="sl-art">${fullbodyImg(k,{cls:'sl',silhouetteIfLocked:false})}<span class="sl-fallback">${tile(k,{})}</span></div>
+      <div class="sl-art" data-act="artTap">${i.rarity==='LR'||i.rarity==='SSR'?`<span class="aura a-${i.rarity}"></span>`:''}<span class="sl-shadow"></span><span class="sl-chara">${fullbodyImg(k,{cls:'sl',silhouetteIfLocked:false})}<span class="sl-fallback">${tile(k,{})}</span></span>${'<i class="spk"></i>'.repeat(i.rarity==='LR'?8:5)}<span class="sl-shine"></span></div>
       <h3>${esc(T[k].nm)}${pf.name?`<small>${esc(pf.name)}</small>`:''}</h3>
       ${pf.alias?`<p class="sl-alias">${esc(pf.alias)}</p>`:''}
       ${pf.intro?`<p class="sl-story">${esc(pf.intro)}</p>`:''}
@@ -1467,7 +1483,7 @@ function render(){
   if(M.anim&&M.anim.results!==undefined&&scr==='gacha')h+=gachaOverlay();
   if(M.toast)h+=`<div class="toast" role="status">${esc(M.toast)}</div>`;
   app.innerHTML=h;
-  soundCheck();
+  soundCheck();setupSlides();
   if(keep){const i=document.getElementById(keep.id);if(i){i.value=keep.v;i.focus()}}
   updateClocks();
 }
@@ -1508,11 +1524,12 @@ async function metaAct(a,el){
   if(a==='inviteFriend')return inviteFriend(el.dataset.uid);
   if(a==='acceptInvite'){S.screen='online';render();return joinRoom(el.dataset.code)}
 }
-const META=new Set(['zukan','heroNext','heroDone','charLine','storyPlay','storyNext','storyClose','avIllus','charInfo','gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
+const META=new Set(['artTap','zukan','heroNext','heroDone','charLine','storyPlay','storyNext','storyClose','avIllus','charInfo','gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
 document.getElementById('app').addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const a=el.dataset.act;
   if(a==='home'){const wasGame=S.screen==='online'||S.screen==='local';if(S.screen==='online')leaveRoom(true);S.screen=wasGame?'battle':'home';render();refreshState();window.scrollTo(0,0);return}
   if(a==='local'){if(S.screen==='online')leaveRoom(true);localNew();S.screen='local';render();return}
+  if(a==='artTap'){const c=el.querySelector('.sl-chara');if(c){c.classList.remove('hop');void c.offsetWidth;c.classList.add('hop');play('tap')}return}
   if(a==='toggleSound'){SND.on=!SND.on;store.set('jinro-sound',SND.on?'on':'off');if(SND.on){actx();play('tap')}render();return}
   if(a==='cpu'){if(S.screen==='online')leaveRoom(true);localNew({level:el.dataset.lv});S.screen='local';render();window.scrollTo(0,0);return}
   if(a==='online'){S.screen='online';O.err='';render();return}
