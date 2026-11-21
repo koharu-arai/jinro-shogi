@@ -828,7 +828,7 @@ async function sendStamp(item){
 function stampBar(){
   if(!O.code)return'';
   const rs=myReactions();
-  return`<div class="stampbar">${O.stampOpen?`<div class="stamps">${rs.length?`<div class="reacts">${rs.map(k=>`<button class="react" data-act="stamp" data-id="${REACT(k)}" aria-label="${esc(T[k].nm)}のリアクション">${lazyImg(ART[k].prop,T[k].nm)}</button>`).join('')}</div>`:'<small class="muted">リアクション道具は、そのキャラを25回使うと解放されます</small>'}${myStamps().map(s=>`<button class="stamp" data-act="stamp" data-id="${s.id}">${esc(s.name)}</button>`).join('')}</div>`:''}
+  return`<div class="stampbar">${O.stampOpen?`<div class="stamps">${rs.length?`<div class="reacts">${rs.map(k=>`<button class="react" data-act="stamp" data-id="${REACT(k)}" aria-label="${esc(T[k].nm)}のリアクション">${lazyImg(ART[k].prop,T[k].nm)}</button>`).join('')}</div>`:'<small class="muted">リアクション道具は、そのキャラを手に入れると解放されます</small>'}${myStamps().map(s=>`<button class="stamp" data-act="stamp" data-id="${s.id}">${esc(s.name)}</button>`).join('')}</div>`:''}
     <button class="btn ghost small stampbtn" data-act="stampToggle" aria-expanded="${O.stampOpen}">💬 スタンプ</button></div>`;
 }
 function bubble(uid){const b=uid&&O.bubbles[uid];return b?(b.react?`<span class="bubble react">${lazyImg(ART[b.react].prop,T[b.react].nm)}</span>`:`<span class="bubble">${esc(b.text)}</span>`):''}
@@ -1249,7 +1249,7 @@ function gachaOverlay(){
     return`<div class="modal ghero r-${it.rarity}"><div class="hbg">${fullbodyImg(k,{cls:'hfull'})}</div>
       <div class="hinfo"><span class="rar big r-${it.rarity}">${it.rarity}</span>${r.dup?'':'<span class="new big">NEW</span>'}
         <h2>${esc(it.name)}<small>${esc(pf.name)}</small></h2><p class="alias">${esc(pf.alias)}</p><p class="intro">${esc(pf.intro)}</p>
-        ${!u.full?`<small class="muted">全身イラストは、このキャラを50回使うと解放されます(いまはシルエット)</small>`:''}
+        ${!u.full?`<small class="muted">全身イラストは、このキャラを手に入れると解放されます</small>`:''}
         <div class="row center">${cs.length>1?`<button class="btn ghost" data-act="heroNext">次のキャラ(${A.hero+1}/${cs.length})</button>`:''}<button class="btn orange" data-act="heroDone">結果を見る</button></div></div></div>`;
   }
   if(A.phase==='open'){
@@ -1434,7 +1434,7 @@ function charModal(){
   const known=u.uses>0;
   const speaker=e&&u.expr?`<span class="spk">${lazyImg(ART[k].expr[e],EXPR_LABEL[e])}</span>`:u.icon?faceIcon(k,iconSvg(k),{cls:'spk'}):'';
   return`<div class="modal cmodal"><div class="mbox charbox r-${r}"><span class="tag">キャラ詳細</span>
-    <div class="cfull">${fullbodyImg(k,{cls:'big'})}${!u.full?`<small class="lockhint">${has?'全身イラストは使用50回で解放(あと'+Math.max(0,50-u.uses)+'回)':'ガチャで手に入れると全身イラストが解放されます'}</small>`:''}</div>
+    <div class="cfull">${fullbodyImg(k,{cls:'big'})}${!u.full?`<small class="lockhint">ガチャで手に入れると全身イラストが解放されます</small>`:''}</div>
     <div class="row center"><span class="rar big r-${r}">${r}</span><h2>${esc(T[k].nm)}<small class="pname">${esc(pf.name)}</small></h2></div>
     <p class="alias">${esc(pf.alias)}</p>
     <p class="wherebox">${whereTag(k)}<small>${esc(whereOf(k).long)}</small></p>
@@ -1453,7 +1453,7 @@ function charModal(){
 /* ---- 図鑑 ---- */
 function zukanHTML(){
   const done=C3KEYS.filter(k=>unlocks(k).icon).length;
-  return`<div class="card zhead"><b>キャラ図鑑</b><p class="muted">キャラを編成して対局すると、顔アイコン→表情→リアクション道具→全身イラストの順に解放されます。キャラ別アチーブメントを達成すると特別なアイコンも。${done}/${C3KEYS.length}体 解放中</p>
+  return`<div class="card zhead"><b>キャラ図鑑</b><p class="muted">キャラを手に入れると、そのキャラの顔アイコン・表情・リアクション道具・全身イラストが全部解放されます。キャラ別アチーブメントを達成すると特別なアイコンも。${done}/${C3KEYS.length}体 解放中</p>
     <button class="btn ghost small" data-act="go" data-to="story">📖 物語『月夜の盤上』を読む</button>
     <button class="btn ghost small" data-act="artStyle">🎨 イラスト切替：${artStyle()==='flat'?'フラット版':'アニメ版'}</button></div>
     <div class="zgrid">${C3KEYS.map(k=>{const u=unlocks(k),nx=nextLadder(k),r=rarOfChar(k),has=hasChar(k);
@@ -1476,7 +1476,7 @@ function renderStory(){
         <div class="pbg">${fullbodyImg(k,{cls:'pfull'})}</div>
         <div class="pbox">${face}<div><b>${u.icon?esc(PROFILE[k].name):'？？？'}<small>${esc(T[k].nm)}${u.expr?`・${EXPR_LABEL[e]}`:''}</small></b><p>「${esc(PROFILE[k].line)}」</p></div></div>
         <small class="ptap">タップで次へ(${R.i+1}/${ch.scene.length})</small></div>
-        ${!u.expr?'<p class="muted center">表情はそのキャラを10回使うと解放されます</p>':''}`;
+        ${!u.expr?'<p class="muted center">表情はそのキャラを手に入れると解放されます</p>':''}`;
     }
     return`${backBar(esc(ch.title),'story')}<div class="card story"><p>${esc(ch.text)}</p></div>
       <div class="row center">${R.ch<STORY.length-1?`<button class="btn orange" data-act="storyPlay" data-ch="${R.ch+1}">次の章へ</button>`:''}<button class="btn ghost" data-act="storyClose">章の一覧へ</button></div>`;
