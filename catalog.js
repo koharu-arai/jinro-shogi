@@ -136,3 +136,15 @@ export const MISSIONS = [
   { id: 'm_stamp', name: '対戦中にスタンプを送る',   reward: 10 },
 ];
 export const LOGIN = { daily: 20, weekBonus: 100, welcome: 900 };
+
+// 初期の駒のレア度(C=コモン)
+export const BASE_RARITY = { villager: 'C', seer: 'R', knight: 'R', hunter: 'R' };
+// 王様と人狼は対戦の経験値で昇格する。経験値 = 勝ち×30 + 負け×10。上のランクは勝率も必要
+export const EXP = { win: 30, lose: 10 };
+export const RANKS = [
+  { r: 'C',   exp: 0,    wr: 0 },
+  { r: 'R',   exp: 100,  wr: 0 },
+  { r: 'SR',  exp: 300,  wr: 0 },
+  { r: 'SSR', exp: 700,  wr: 40 },
+  { r: 'LR',  exp: 1500, wr: 50 },
+];

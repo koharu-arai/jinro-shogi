@@ -1,22 +1,17 @@
 /* Layout: game app. Timers across the top (you left, opponent right), opponent's hand, 3x5 board, your hand, status. Flat bright tiles: pink = hidden wolf, blue = revealed wolf, gray = unknown enemy. */
 :root{
-  --bg:#e7ebf4; --panel:#ffffff; --ink:#1d2232; --mute:#687089; --line:#cdd3e2;
-  --board:#f8f9fc; --board-edge:#b9c1d6; --hl:#ffe08a; --hl-red:#ffc2ca;
-  --accent:#ff9f1c; --danger:#ec4b5c; --go:#22b573;
-  --tile:#ffffff; --tile-edge:#2a3045; --tile-ink:#1d2232;
-  --wolf-hid:#ff6f93; --wolf-open:#3f86f0; --wolf-hid-bg:#ffe1e9; --wolf-open-bg:#dce9ff; --enemy:#a4aabb; --enemy-ink:#f4f5f9;
+  --bg:#1a1442; --panel:rgba(38,30,92,.72); --panel-solid:#2a2163; --ink:#f6efdc; --mute:#c3bbe0; --line:rgba(255,214,128,.28);
+  --board:#2b2466; --board-edge:#18123d; --hl:#7a6224; --hl-red:#7a2a44;
+  --accent:#ffc552; --danger:#ff5470; --go:#3ad69a;
+  --gold1:#fff1b8; --gold2:#ffc552; --gold3:#d68a1c; --goldline:rgba(255,205,110,.45);
+  --tile:#fffaf0; --tile-edge:#2a2045; --tile-ink:#1d2232;
+  --wolf-hid:#ff6f93; --wolf-open:#4f95ff; --wolf-hid-bg:#ffe1e9; --wolf-open-bg:#dce9ff; --enemy:#8d86b5; --enemy-ink:#f4f5f9;
   --font-d:"Dela Gothic One","Hiragino Sans","Yu Gothic",sans-serif;
+  --font-m:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
   --font-b:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
   --cell:min(26vw, 84px, calc((100dvh - 340px) / 5));
+  color-scheme:dark;
 }
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#131725; --panel:#1d2233; --ink:#e9ecf4; --mute:#9aa2ba; --line:#343c55;
-  --board:#232a3e; --board-edge:#3d4762; --hl:#6b5a1f; --hl-red:#6a2c36;
-  --tile:#f4f6fb; --enemy:#6e7690; --enemy-ink:#e3e6ef; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#131725; --panel:#1d2233; --ink:#e9ecf4; --mute:#9aa2ba; --line:#343c55;
-  --board:#232a3e; --board-edge:#3d4762; --hl:#6b5a1f; --hl-red:#6a2c36;
-  --tile:#f4f6fb; --enemy:#6e7690; --enemy-ink:#e3e6ef; color-scheme:dark}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-weight:500;font-size:15px;line-height:1.6;-webkit-tap-highlight-color:transparent}
 #app{max-width:440px;margin:0 auto;padding-inline:16px;padding-block:12px 28px;display:flex;flex-direction:column;gap:12px;box-sizing:border-box}
@@ -325,3 +320,185 @@ details.rules summary{cursor:pointer;padding:12px 0;font-weight:800}
 .bitebar{display:flex;gap:10px;align-items:center;margin:8px 0}
 .cell.bitet{background:rgba(225,29,72,.28)!important;box-shadow:inset 0 0 0 3px #e11d48}
 .cell.marked::after{content:"王か狼";position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:800;background:#e11d48;color:#fff;border-radius:5px;padding:0 4px;pointer-events:none}
+
+/* =====================================================================
+   v3 テーマ:月夜の村(豪華版)
+   ===================================================================== */
+body{background:#241a5c;overflow-x:hidden}
+#app{position:relative;z-index:1}
+#app.hasnav{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+
+/* --- 背景の村 --- */
+#scene{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+#scene .sky{position:absolute;inset:0;background:
+  radial-gradient(120% 60% at 50% 108%,rgba(255,150,120,.55),transparent 60%),
+  radial-gradient(90% 50% at 82% 8%,rgba(170,140,255,.35),transparent 60%),
+  linear-gradient(180deg,#1d1655 0%,#3a2580 38%,#6b3a8e 68%,#b45f86 88%,#e08a77 100%)}
+#scene .stars{position:absolute;inset:0}
+.star{position:absolute;border-radius:50%;background:#fff;box-shadow:0 0 6px 1px rgba(255,255,255,.7);animation:twinkle 3s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+.moonwrap{position:absolute;top:5%;right:8%;width:96px;height:96px;animation:moonfloat 9s ease-in-out infinite}
+.moon-halo{position:absolute;inset:-60px;border-radius:50%;background:radial-gradient(circle,rgba(255,236,180,.55),rgba(255,210,140,.18) 40%,transparent 68%);animation:halo 6s ease-in-out infinite}
+.moonball{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 36% 34%,#fffdf0,#fff1c2 45%,#f2d58a 80%);box-shadow:0 0 40px 10px rgba(255,232,170,.55),inset -10px -8px 0 rgba(214,170,90,.25)}
+.moonball i{position:absolute;border-radius:50%;background:rgba(214,175,100,.35)}
+.moonball i:nth-child(1){width:18px;height:18px;left:22%;top:52%}.moonball i:nth-child(2){width:11px;height:11px;left:58%;top:28%}.moonball i:nth-child(3){width:8px;height:8px;left:66%;top:62%}
+@keyframes moonfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+@keyframes halo{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
+.clouds{position:absolute;inset:0}
+.cloud{position:absolute;left:0;animation:drift linear infinite;will-change:transform}
+.cloud path{fill:#e9dcff}
+@keyframes drift{from{transform:translateX(-300px)}to{transform:translateX(calc(100vw + 40px))}}
+#scene svg.hills,#scene svg.village{position:absolute;left:0;right:0;bottom:0;width:100%}
+#scene svg.hills{height:min(34vh,260px)}#scene svg.hills path{fill:#3b2468;opacity:.85}
+#scene svg.village{height:min(26vh,200px)}
+.hill-near{fill:#22163f}.ground{fill:#1a1133}.tree{fill:#1c1236}
+.hw{fill:#25183f}.hr{fill:#2f1f4d}
+.win{fill:#ffcf6e;filter:drop-shadow(0 0 3px #ffb74a);animation:winflick 11s steps(1) infinite}
+.win.off{animation-name:winflick2}
+@keyframes winflick{0%,86%{opacity:1}87%,93%{opacity:.15}94%,100%{opacity:1}}
+@keyframes winflick2{0%,40%{opacity:.12}41%,100%{opacity:1}}
+.puff{fill:#d9cdf0;opacity:0;transform-box:fill-box;transform-origin:center;animation:puff 4.2s ease-out infinite}
+@keyframes puff{0%{opacity:0;transform:translate(0,0) scale(.5)}15%{opacity:.55}100%{opacity:0;transform:translate(10px,-34px) scale(2.4)}}
+.ridge{position:absolute;left:0;right:0;bottom:min(18vh,140px);height:60px}
+.wolf{position:absolute;bottom:0;left:0;width:calc(96px*var(--sz,1));opacity:0}
+.wolf svg{width:100%;display:block;fill:#140c28;transform:scaleX(var(--dir,1));filter:drop-shadow(0 0 6px rgba(255,190,140,.35))}
+.wolf.go{opacity:1;animation:wolfrun linear forwards}
+.wolf.go.rtl{animation-name:wolfrunR}
+.wolf.go svg{animation:bob .3s ease-in-out infinite}
+.wolf .fb{opacity:0}.wolf.go .fa{animation:legA .3s steps(1) infinite}.wolf.go .fb{animation:legB .3s steps(1) infinite}
+@keyframes legA{0%{opacity:1}50%{opacity:0}}@keyframes legB{0%{opacity:0}50%{opacity:1}}
+@keyframes bob{0%,100%{translate:0 0}50%{translate:0 -4px}}
+@keyframes wolfrun{from{transform:translateX(-140px)}to{transform:translateX(calc(100vw + 40px))}}
+@keyframes wolfrunR{from{transform:translateX(calc(100vw + 40px))}to{transform:translateX(-140px)}}
+.fireflies i{position:absolute;width:4px;height:4px;border-radius:50%;background:#ffe9a0;box-shadow:0 0 8px 3px rgba(255,220,120,.7);animation:fly 7s ease-in-out infinite;opacity:0}
+@keyframes fly{0%{opacity:0;transform:translate(0,0)}20%{opacity:1}50%{transform:translate(14px,-22px)}80%{opacity:.8}100%{opacity:0;transform:translate(-8px,-40px)}}
+@media (prefers-reduced-motion: reduce){#scene *{animation:none!important}.wolf{display:none}}
+
+/* --- 共通パーツ --- */
+h1,h2{color:var(--ink)}
+.card,.hbar,.tile2,.mbox,.qcard,.mode-card,.feature,.lday,.icard,.tab,.stamp{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.card{background:linear-gradient(180deg,rgba(60,46,130,.72),rgba(34,26,82,.78));border:1px solid var(--goldline);box-shadow:0 12px 30px rgba(10,6,40,.35),inset 0 1px 0 rgba(255,255,255,.08)}
+.muted{color:var(--mute)}
+.btn{background:linear-gradient(180deg,#3c2f86,#2a2063);color:var(--gold1);box-shadow:inset 0 0 0 1px var(--goldline),0 4px 0 #160f3c}
+.btn.orange,.btn.gold{position:relative;overflow:hidden;background:linear-gradient(180deg,#fff3b8 0%,#ffd060 42%,#f0a52a 72%,#c97a12 100%);color:#3d2400;text-shadow:0 1px 0 rgba(255,255,255,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 0 0 0 1px rgba(140,80,0,.4),0 4px 0 #8a520c,0 10px 22px rgba(255,170,60,.35)}
+.btn.orange::after,.btn.gold::after{content:"";position:absolute;top:0;bottom:0;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.65),transparent);transform:skewX(-20deg);animation:shine 3.6s ease-in-out infinite}
+@keyframes shine{0%,60%{left:-60%}85%,100%{left:130%}}
+.btn.ghost{background:rgba(255,255,255,.08);color:var(--ink);box-shadow:inset 0 0 0 1px var(--goldline)}
+.btn.danger{background:linear-gradient(180deg,#ff7a8e,#d93352);color:#fff;box-shadow:0 4px 0 #8a1830}
+.btn[disabled]::after{display:none}
+.btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-5px;margin-right:8px}
+.btn.xl{font-size:20px;padding:16px 24px;border-radius:18px;letter-spacing:.12em;width:100%}
+input.namein,input.codein,input{background:rgba(10,6,40,.45);border:1px solid var(--goldline);color:var(--ink);border-radius:12px}
+.tag{color:var(--gold2)}
+.top .ttlh{font-family:var(--font-m);font-size:26px;letter-spacing:.08em;background:linear-gradient(180deg,var(--gold1),var(--gold2) 60%,var(--gold3));-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 rgba(40,20,0,.35))}
+.coin{background:linear-gradient(180deg,rgba(40,28,90,.85),rgba(20,14,56,.85));color:var(--gold1);box-shadow:inset 0 0 0 1px var(--goldline),0 4px 14px rgba(10,6,40,.35)}
+.dot{background:linear-gradient(180deg,#ff7a8e,#e03152);box-shadow:0 0 0 2px #2a1f66}
+.toast{background:linear-gradient(180deg,#fff3c4,#ffd36a);color:#3d2400;box-shadow:0 10px 24px rgba(0,0,0,.3);bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+
+/* --- ヘッダー --- */
+.hbar{background:linear-gradient(180deg,rgba(60,46,130,.7),rgba(34,26,82,.7));border:1px solid var(--goldline);box-shadow:0 10px 26px rgba(10,6,40,.3)}
+.avbtn .av{box-shadow:0 0 0 2px var(--gold2),0 0 12px rgba(255,197,82,.5)}
+
+/* --- ホームの舞台 --- */
+.stage{position:relative;border-radius:26px;padding:26px 20px 22px;overflow:hidden;text-align:center;
+  background:radial-gradient(90% 70% at 50% 0%,rgba(255,220,150,.22),transparent 60%),linear-gradient(180deg,rgba(70,48,150,.55),rgba(30,20,80,.75));
+  border:1px solid var(--goldline);box-shadow:0 18px 40px rgba(10,6,40,.4),inset 0 1px 0 rgba(255,255,255,.12)}
+.stage::before,.stage::after{content:"";position:absolute;width:46px;height:46px;border:2px solid var(--gold2);opacity:.7}
+.stage::before{top:10px;left:10px;border-right:0;border-bottom:0;border-radius:12px 0 0 0}
+.stage::after{bottom:10px;right:10px;border-left:0;border-top:0;border-radius:0 0 12px 0}
+.stage .moon{position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(255,240,190,.5),transparent 65%)}
+.stage-in{position:relative;display:grid;gap:8px;justify-items:center}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.4em;color:var(--gold2);padding-left:.4em}
+.logo{font-family:var(--font-m);font-size:54px;line-height:1.05;letter-spacing:.1em;padding-left:.1em;
+  background:linear-gradient(180deg,#fffbe6 0%,#ffe08a 45%,#f0a52a 75%,#b86d0c 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 3px 0 rgba(60,30,0,.55)) drop-shadow(0 0 18px rgba(255,200,100,.35))}
+.logo span{background:linear-gradient(180deg,#ffd6e2,#ff6f93 60%,#c2325a);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tagline{margin:0 0 6px;color:#e8def8;font-size:14px}
+.stage .btn.xl{margin-top:6px}
+.stage.solo{padding:34px 20px 26px}
+.stage-pcs{position:absolute;inset:0;pointer-events:none}
+.spc{position:absolute;--cell:46px;opacity:.9;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35));animation:hover 5s ease-in-out infinite}
+.spc0{left:14px;top:62px;transform:rotate(-14deg)}.spc1{right:16px;top:70px;transform:rotate(12deg);animation-delay:-1.6s}.spc2{left:30px;bottom:86px;transform:rotate(8deg);animation-delay:-3.1s;--cell:38px;opacity:.6}
+@keyframes hover{0%,100%{translate:0 0}50%{translate:0 -7px}}
+@media (max-width:370px){.spc{display:none}}
+
+/* --- 本日のガチャ --- */
+.feature{position:relative;display:grid;gap:4px;text-align:left;border:1px solid var(--goldline);border-radius:22px;padding:16px 16px 14px;color:#fff;overflow:hidden;
+  background:radial-gradient(80% 90% at 100% 0%,rgba(255,200,120,.35),transparent 60%),linear-gradient(135deg,#5b2fa0,#2b1b6e);box-shadow:0 14px 30px rgba(10,6,40,.35)}
+.feature.b-B{background:radial-gradient(80% 90% at 100% 0%,rgba(255,90,120,.45),transparent 60%),linear-gradient(135deg,#7a1f4f,#2b1240)}
+.feature.b-S{background:radial-gradient(80% 90% at 100% 0%,rgba(120,255,220,.35),transparent 60%),linear-gradient(135deg,#17607a,#1d1c5e)}
+.ftag{font-size:11px;font-weight:800;letter-spacing:.2em;color:var(--gold2)}
+.fname{font-family:var(--font-m);font-size:24px;letter-spacing:.06em}
+.fdesc{color:#eadff8;font-size:12px}
+.fchars{display:flex;gap:6px;margin-top:6px}
+.fc{--cell:44px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35));animation:hover 4s ease-in-out infinite}.fc:nth-child(2){animation-delay:-1s}.fc:nth-child(3){animation-delay:-2s}
+.fgo{position:absolute;right:14px;bottom:14px;font-weight:800;font-size:13px;color:#3d2400;background:linear-gradient(180deg,#fff3b8,#ffc552);padding:5px 12px;border-radius:999px;box-shadow:0 3px 0 #8a520c}
+
+/* --- クイック --- */
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qcard{position:relative;display:grid;gap:4px;text-align:left;border:1px solid var(--goldline);border-radius:18px;padding:12px 14px;color:var(--ink);background:linear-gradient(180deg,rgba(60,46,130,.7),rgba(34,26,82,.75))}
+.qico svg,.mico svg{width:26px;height:26px;fill:none;stroke:var(--gold2);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.qbar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}.qbar i{display:block;height:100%;background:linear-gradient(90deg,#ffe08a,#f0a52a);border-radius:3px}
+.qcard small{font-size:11px;color:var(--mute)}
+
+/* --- 対戦の入り口 --- */
+.mode-card{display:flex;align-items:center;gap:14px;text-align:left;border:1px solid var(--goldline);border-radius:20px;padding:16px;color:var(--ink);
+  background:linear-gradient(135deg,rgba(80,56,170,.75),rgba(34,24,86,.8));box-shadow:0 12px 26px rgba(10,6,40,.32)}
+.mode-card.m-online{background:radial-gradient(80% 120% at 100% 0%,rgba(255,200,110,.35),transparent 60%),linear-gradient(135deg,#6a3fc0,#2c1c78)}
+.mode-card.m-local{background:radial-gradient(80% 120% at 100% 0%,rgba(255,130,170,.3),transparent 60%),linear-gradient(135deg,#55308f,#241760)}
+.mico{flex:none;width:52px;height:52px;border-radius:16px;display:grid;place-items:center;background:rgba(10,6,40,.35);box-shadow:inset 0 0 0 1px var(--goldline)}
+.mico svg{width:30px;height:30px}
+.mtxt{display:grid;gap:2px;flex:1}.mtxt b{font-family:var(--font-m);font-size:20px;letter-spacing:.06em}.mtxt small{font-size:12px;color:#ded3f2}
+.marr{font-size:28px;color:var(--gold2);line-height:1}
+
+/* --- 下のタブ --- */
+.bnav{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:20;width:min(420px,calc(100% - 20px));box-sizing:border-box;
+  display:grid;grid-template-columns:repeat(4,1fr);padding:6px;border-radius:24px;
+  background:linear-gradient(180deg,rgba(52,38,118,.88),rgba(24,16,64,.92));backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--goldline);box-shadow:0 14px 34px rgba(8,4,30,.5),inset 0 1px 0 rgba(255,255,255,.1)}
+.bn{position:relative;border:0;background:none;color:#b9b0dc;display:grid;justify-items:center;gap:1px;padding:7px 0 5px;border-radius:18px;transition:color .2s}
+.bni svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;transition:transform .25s}
+.bnl{font-size:11px;font-weight:800;letter-spacing:.04em}
+.bn.on{color:var(--gold1);background:radial-gradient(70% 90% at 50% 100%,rgba(255,197,82,.35),transparent 70%)}
+.bn.on .bni svg{transform:translateY(-2px) scale(1.08);stroke:var(--gold2);filter:drop-shadow(0 0 6px rgba(255,197,82,.7))}
+.bn.on::before{content:"";position:absolute;top:-6px;left:30%;right:30%;height:3px;border-radius:2px;background:linear-gradient(90deg,transparent,var(--gold2),transparent)}
+.bn .dot{top:2px;right:18%}
+
+/* --- 既存画面の色合わせ --- */
+.gbanner{border:1px solid var(--goldline);box-shadow:0 14px 30px rgba(10,6,40,.35)}
+.gbanner h2{font-family:var(--font-m);letter-spacing:.06em;background:linear-gradient(180deg,#fffbe6,#ffd060 60%,#e0901c);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tab{background:rgba(255,255,255,.08);color:var(--mute);box-shadow:inset 0 0 0 1px rgba(255,214,128,.18)}
+.tab.on{background:linear-gradient(180deg,#fff3b8,#ffc552);color:#3d2400}
+.icard{background:linear-gradient(180deg,rgba(60,46,130,.8),rgba(30,22,74,.85))}
+.icard.r-SSR{background:linear-gradient(180deg,rgba(130,90,20,.75),rgba(40,28,80,.85))}
+.icard.r-LR{background:linear-gradient(180deg,rgba(150,50,120,.7),rgba(40,40,120,.85))}
+.lday{background:rgba(255,255,255,.08)}.lday.got{background:linear-gradient(180deg,#fff3b8,#ffc552);color:#3d2400}.lday.got small{color:#6b4a10}
+.welcome,.invite{background:linear-gradient(135deg,#fff3c4,#ffd0de);color:#3a2400}
+.mbox{background:linear-gradient(180deg,#3b2c86,#21185a);border:1px solid var(--goldline)}
+.mbox h2{font-family:var(--font-m);background:linear-gradient(180deg,#fffbe6,#ffd060 60%,#e0901c);-webkit-background-clip:text;background-clip:text;color:transparent}
+.modal{background:rgba(14,8,40,.66)}
+.stamp{background:rgba(255,255,255,.1);color:var(--ink);box-shadow:inset 0 0 0 1px var(--goldline)}
+.status{background:linear-gradient(180deg,rgba(60,46,130,.8),rgba(34,26,82,.85));border:1px solid var(--goldline)}
+.board{background:linear-gradient(145deg,#ffe08a,#c98a1c 40%,#7a4a0c 60%,#e8b04a);padding:7px;box-shadow:0 16px 36px rgba(8,4,30,.5)}
+.cell{background:linear-gradient(180deg,#30287a,#251e62)}
+.cell.last{background:linear-gradient(180deg,#8a6a1e,#6a4f14)}
+.cell.counter{background:linear-gradient(180deg,#8a2a48,#6a1c36)}
+.hero p,.cover p{color:#e8def8}
+.cover{background:linear-gradient(180deg,rgba(60,46,130,.9),rgba(28,20,72,.95))}
+/* 初期の駒のレア度・王様と人狼のランク */
+.rar.r-C{background:#8b93a7}
+.rar.big{font-size:14px;padding:3px 10px;border-radius:8px}
+.rankcard .rkrow{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.rankcard .bp{position:relative;--cell:54px;padding-bottom:6px}
+.rankcard .bp .rar{position:absolute;left:50%;bottom:-4px;transform:translateX(-50%)}
+.rkinfo{flex:1;min-width:140px;display:grid;gap:4px}.rkinfo small{font-size:12px;color:var(--mute)}.rkinfo .need{color:var(--gold1);font-weight:700}
+.palbtn .rar{position:absolute;left:50%;bottom:-4px;transform:translateX(-50%)}
+.pc.rk-R{box-shadow:inset 0 0 0 2px var(--tile-edge),0 3px 0 var(--tile-edge),0 0 0 2px #4f95ff}
+.pc.rk-SR{box-shadow:inset 0 0 0 2px var(--tile-edge),0 3px 0 var(--tile-edge),0 0 0 2px #b77cff,0 0 10px rgba(183,124,255,.7)}
+.pc.rk-SSR{box-shadow:inset 0 0 0 2px var(--tile-edge),0 3px 0 var(--tile-edge),0 0 0 2.5px #ffc552,0 0 14px rgba(255,197,82,.85)}
+.pc.rk-LR{box-shadow:inset 0 0 0 2px var(--tile-edge),0 3px 0 var(--tile-edge),0 0 0 2.5px #ff6fae,0 0 16px rgba(255,120,200,.9);animation:lrglow 2.4s linear infinite}
+@keyframes lrglow{0%{filter:hue-rotate(0deg)}100%{filter:hue-rotate(360deg)}}
+.pc.rk-SSR::before,.pc.rk-LR::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.55) 50%,transparent 65%);background-size:250% 100%;animation:pcshine 3s ease-in-out infinite;pointer-events:none;z-index:2}
+@keyframes pcshine{0%,55%{background-position:120% 0}100%{background-position:-120% 0}}
+.sheet{background:linear-gradient(180deg,#3b2c86,#21185a);border-top:1px solid var(--goldline)}
+.hand{background:rgba(30,22,74,.6);border:1px solid rgba(255,214,128,.2)}

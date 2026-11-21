@@ -1,5 +1,5 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { CHARS, BANNERS, bannerOfDay, ITEMS, ITEM, ACH_ITEMS, ACHIEVEMENTS, DEFAULT_STAMPS, MISSIONS, RATES, REFUND, TOKEN_REFUND, TOKEN_COST, COST, RARITY_LABEL, RARITY_ORDER, KIND_LABEL, LOGIN } from "./catalog.js";
+import { CHARS, BANNERS, bannerOfDay, BASE_RARITY, EXP, RANKS, ITEMS, ITEM, ACH_ITEMS, ACHIEVEMENTS, DEFAULT_STAMPS, MISSIONS, RATES, REFUND, TOKEN_REFUND, TOKEN_COST, COST, RARITY_LABEL, RARITY_ORDER, KIND_LABEL, LOGIN } from "./catalog.js";
 
 /* ===== rules data ===== */
 const BASE = ['king','wolf','villager','seer','hunter','knight'];
@@ -204,7 +204,8 @@ function tile(type,o={}){
   const band=type==='wolf'&&wolf==='open'?'var(--wolf-open)':BAND[type];
   const skin=look.skin&&ITEM[look.skin]?` skin-${look.skin}`:'';
   const fr=look.frame&&ITEM[look.frame];
-  return`<span class="pc${w}${skin}${fr?' framed':''}${o.enemy?' enemy':''}" style="--band:${band}${fr?`;--frame:${fr.color}`:''}" aria-label="${T[type].nm}"><span class="face">${iconSvg(type,look)}<span class="band">${T[type].nm}</span></span>${arrows(type)}${o.hurt?'<span class="hurt">負傷</span>':''}</span>`;
+  const rk=(type==='king'||type==='wolf')&&look.rk&&look.rk!=='C'?` rk-${look.rk}`:'';
+  return`<span class="pc${w}${skin}${rk}${fr?' framed':''}${o.enemy?' enemy':''}" style="--band:${band}${fr?`;--frame:${fr.color}`:''}" aria-label="${T[type].nm}"><span class="face">${iconSvg(type,look)}<span class="band">${T[type].nm}</span></span>${arrows(type)}${o.hurt?'<span class="hurt">負傷</span>':''}</span>`;
 }
 function boardHTML(G,v,{sel=null,interactive=false,reveal=false,looks=[{},{}],watch=false}={}){
   const tg=new Set();
@@ -262,7 +263,7 @@ function setupHTML(arr,sel,pool,look,msg){
   }
   b+='</div></div>';
   const pal=`<div class="card deckpal"><div class="row"><b>編成</b><span class="muted">駒をタップしてから、下の駒を選ぶと入れ替わります(王様と人狼は外せません)</span></div>
-    <div class="palrow">${pool.map(t=>{const used=arr.includes(t),it=CHAR_ITEM[t];return`<button class="palbtn${used?' used':''}" data-act="pick" data-t="${t}" ${used?'disabled':''}>${tile(t,{look})}${it?`<span class="rar r-${it.rarity}">${it.rarity}</span>`:''}</button>`}).join('')}</div>
+    <div class="palrow">${pool.map(t=>{const used=arr.includes(t),r=rarOf(t);return`<button class="palbtn${used?' used':''}" data-act="pick" data-t="${t}" ${used?'disabled':''}>${tile(t,{look})}<span class="rar r-${r}">${r}</span></button>`}).join('')}</div>
     ${msg?`<p class="err">${esc(msg)}</p>`:''}</div>`;
   return b+pal;
 }
@@ -272,6 +273,22 @@ function pickInto(arr,sel,t){
   if(arr.includes(t))return'同じ駒は1枚までです。';
   arr[sel]=t;return'';
 }
+function rankCard(){
+  const R=rankOf(M.st?.stats),look=myLook(),nx=R.next;
+  const pct=nx?Math.min(100,(R.exp-R.cur.exp)/(nx.exp-R.cur.exp)*100):100;
+  const need=nx?`次の${nx.r}まで あと${Math.max(0,nx.exp-R.exp)}経験値${nx.wr?`・勝率${nx.wr}%以上`:''}`:'最高ランクに到達！';
+  const base=Object.entries(BASE_RARITY).map(([t,r])=>`<div class="bp">${tile(t,{look})}<span class="rar r-${r}">${r}</span></div>`).join('');
+  return`<div class="card rankcard"><div class="row"><b>王様・人狼のランク</b><span class="spacer"></span><span class="rar big r-${R.r}">${R.r}</span></div>
+    <div class="rkrow"><div class="bp">${tile('king',{look})}<span class="rar r-${R.r}">${R.r}</span></div><div class="bp">${tile('wolf',{look})}<span class="rar r-${R.r}">${R.r}</span></div>
+      <div class="rkinfo"><span class="qbar"><i style="width:${pct}%"></i></span><small>経験値 ${R.exp}・勝率 ${R.wr}%</small><small class="need">${need}</small></div></div>
+    <p class="muted">対戦するほど経験値がたまり(勝ち+${EXP.win}・負け+${EXP.lose})、C→R→SR→SSR→LRと昇格します。SSRは勝率${RANKS[3].wr}%以上、LRは勝率${RANKS[4].wr}%以上が条件。ランクが上がると、王様と人狼の駒が光ります。</p>
+    <b class="left">初期の駒</b><div class="rkrow">${base}</div></div>`;
+}
+// デフォルト編成(コレクションの「編成」で変更。端末に保存)
+function validDeck(a){return Array.isArray(a)&&a.length===6&&a.every(t=>T[t])&&a.filter(t=>t==='king').length===1&&a.filter(t=>t==='wolf').length===1&&new Set(a).size===6}
+function savedDeck(){try{const a=JSON.parse(store.get('jinro-deck')||'null');if(validDeck(a))return a.slice()}catch(e){}return PRESETS[0].a.slice()}
+// 使えないキャラ(持っていない・ルールでオフ)を基本の駒に置き換える
+function fitDeck(a,allowed){const out=a.slice();out.forEach((t,i)=>{if(NEWC.includes(t)&&!allowed.includes(t)){out[i]=SWAP_BASE.find(b=>!out.includes(b))||'villager'}});return out}
 function setupControls(){return`<div class="row">${PRESETS.map((x,k)=>`<button class="btn ghost small" data-act="preset" data-k="${k}">${x.name}</button>`).join('')}<button class="btn ghost small" data-act="shuffle">並びをランダム</button></div>`}
 function rulesHTML(open=false){
   return`<details class="rules"${open?' open':''}><summary>ルールと駒の動き</summary>
@@ -293,7 +310,7 @@ const S={screen:'home'};
 let L=null;
 const O={watch:false,watchers:0,code:null,seat:null,game:null,players:{},draft:PRESETS[0].a.slice(),sel:null,deckMsg:'',seenMove:-1,seenAt:Date.now(),toast:null,err:'',busy:false,uid:null,ch:null,timeoutSent:false,starting:false,resignArm:false,stampOpen:false,bubbles:{}};
 // M = コイン・持ち物・フレンドなど(ホーム画面まわり)
-const M={st:null,loading:false,err:'',modal:null,gacha:null,tab:'char',toast:'',friendErr:'',inviteSent:{}};
+const M={st:null,loading:false,err:'',modal:null,gacha:null,tab:'deck',deck:null,toast:'',friendErr:'',inviteSent:{}};
 let sb=null,sbFail=false;
 
 /* ===== player identity ===== */
@@ -308,7 +325,14 @@ function getSecret(){
   return s;
 }
 const myName=()=>store.get('jinro-name')||'';
-const myLook=()=>M.st?.look||{};
+// 王様・人狼のランク(経験値＋勝率で昇格)
+function rankOf(stats){
+  const w=stats?.wins||0,n=stats?.games||0,exp=w*EXP.win+(n-w)*EXP.lose,wr=n?Math.round(w/n*100):0;
+  let k=0;RANKS.forEach((x,i)=>{if(exp>=x.exp&&wr>=x.wr)k=i});
+  return{r:RANKS[k].r,exp,wr,next:RANKS[k+1]||null,cur:RANKS[k]};
+}
+const myLook=()=>({...(M.st?.look||{}),rk:rankOf(M.st?.stats).r});
+const rarOf=t=>(t==='king'||t==='wolf')?rankOf(M.st?.stats).r:CHAR_ITEM[t]?.rarity||BASE_RARITY[t]||'C';
 const owned=()=>new Set(M.st?.items||[]);
 const ownedChars=()=>NEWC.filter(k=>owned().has(CHAR_ITEM[k].id));
 const myStamps=()=>[...DEFAULT_STAMPS,...ITEMS.filter(i=>i.kind==='stamp'&&owned().has(i.id))];
@@ -369,7 +393,7 @@ async function recordResult(g){
 }
 
 /* ===== local mode (one device) ===== */
-function localNew(){L={phase:'rules',rules:{...DEFAULT_RULES},cover:{p:0,next:'setup'},setup:[PRESETS[0].a.slice(),PRESETS[0].a.slice()],setupP:0,sel:null,msg:'',G:null,byo:BYO,out:null,notice:'',noticeAlert:false,resignArm:false}}
+function localNew(){L={phase:'rules',rules:{...DEFAULT_RULES},cover:{p:0,next:'setup'},setup:[savedDeck(),savedDeck()],setupP:0,sel:null,msg:'',G:null,byo:BYO,out:null,notice:'',noticeAlert:false,resignArm:false}}
 function localEnd(out){L.sel=null;L.byo=BYO;if(L.G.winner!=null)L.phase='over';else{L.out=out;L.phase='result'}}
 const localLooks=()=>[myLook(),{}];
 function renderLocal(){
@@ -481,7 +505,7 @@ async function watchRoom(raw){
 }
 async function enterRoom(code,seat,watch=false){
   leaveRoom(true);
-  Object.assign(O,{watch,watchers:0,code,seat,game:null,players:{},sel:null,deckMsg:'',toast:null,seenMove:-1,draft:PRESETS[0].a.slice(),timeoutSent:false,resignArm:false,stampOpen:false,bubbles:{}});
+  Object.assign(O,{watch,watchers:0,code,seat,game:null,players:{},sel:null,deckMsg:'',toast:null,seenMove:-1,draft:fitDeck(savedDeck(),ownedChars()),timeoutSent:false,resignArm:false,stampOpen:false,bubbles:{}});
   if(!watch)store.set('jinro-room',code);
   history.replaceState(null,'',(watch?'?watch=':'?room=')+code);
   O.ch=sb.channel('room-'+code,{config:{presence:{key:O.uid}}})
@@ -587,7 +611,7 @@ function renderWatch(g){
     <p class="muted">${rulesText(rulesOf(g))}</p>`;
 }
 function renderOnline(){
-  const back=`<div class="top"><button class="btn ghost small" data-act="home">ホーム</button><h2 class="ttlh">オンライン対戦</h2></div>`;
+  const back=`<div class="top"><button class="btn ghost small" data-act="go" data-to="battle">‹ 戻る</button><h2 class="ttlh">オンライン対戦</h2></div>`;
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY)return`${back}<div class="card"><b>オンライン対戦の準備がまだです</b><p class="muted">サイトを公開した人が config.js に Supabase の URL とキーを設定すると使えるようになります。</p><button class="btn orange" data-act="local">1台で対戦する</button></div>`;
   if(sbFail)return`${back}<div class="card"><b>サーバーに接続できませんでした</b><p class="muted">通信環境を確認して、ページを読み込み直してください。</p><button class="btn orange" data-act="local">1台で対戦する</button></div>`;
   if(!sb)return`<div class="card"><p class="muted">接続しています…</p></div>`;
@@ -756,26 +780,67 @@ function inviteBanner(){
 }
 function renderHome(){
   if(!myName()||P.editing){
-    return`<section class="hero"><img class="emblem" src="icon.svg" alt="" width="72" height="72"><h1>人狼<span>将棋</span></h1><p>正体を隠した6枚の駒で、相手の王様を狙う心理戦。</p></section>
+    return`<section class="hero stage solo"><div class="moon" aria-hidden="true"></div><div class="stage-in"><span class="eyebrow">月夜の心理戦</span><h1 class="logo">人狼<span>将棋</span></h1><p class="tagline">正体を隠した6枚の駒で、相手の王様を狙う心理戦。</p></div></section>
       ${nameCard()}${M.err?`<p class="err">${esc(M.err)}</p>`:''}
-      <button class="btn ghost mode" data-act="local">1台で対戦<small>名前を決めなくても、スマホ1台ですぐ遊べます</small></button>${rulesHTML()}`;
+      <button class="mode-card m-local" data-act="local"><span class="mico">${UI.phone}</span><span class="mtxt"><b>1台で対戦</b><small>名前を決めなくても、スマホ1台ですぐ遊べます</small></span><span class="marr">›</span></button>${rulesHTML()}`;
   }
-  const mr=missionsReady(),fb=friendBadge(),st=M.st;
-  const done=st?MISSIONS.filter(m=>st.claimed.includes(m.id)).length:0;
+  const st=M.st,done=st?MISSIONS.filter(m=>st.claimed.includes(m.id)).length:0,mr=missionsReady();
+  const bk=todayBanner(),BN=BANNERS[bk],feat=bannerItems(bk).filter(i=>bk==='S'?true:i.rarity==='LR');
+  const own=owned(),allItems=[...ITEMS,...ACH_ITEMS],have=allItems.filter(i=>own.has(i.id)).length;
   return`${headerBar()}${inviteBanner()}
-    <section class="playcard"><div class="playtitle"><h1>人狼<span>将棋</span></h1><p>正体を隠した6枚で、相手の王様を狙え。</p></div>
-      <button class="btn orange mode" data-act="online">オンライン対戦<small>部屋コードやフレンドと、それぞれのスマホで</small></button>
-      <button class="btn ghost mode" data-act="local">1台で対戦<small>スマホを交代で渡して2人で遊ぶ</small></button></section>
-    <div class="tiles">
-      <button class="tile2 t-gacha" data-act="go" data-to="gacha"><span class="tico">🎰</span><b>ガチャ</b><small>単発${COST.single}・10連${COST.ten}</small></button>
-      <button class="tile2 t-mission" data-act="go" data-to="missions"><span class="tico">📅</span><b>ミッション・実績</b><small>今日 ${done}/${MISSIONS.length} 達成</small>${mr?`<i class="dot">${mr}</i>`:''}</button>
-      <button class="tile2 t-coll" data-act="go" data-to="collection"><span class="tico">🎨</span><b>コレクション</b><small>着せ替え・称号・キャラ</small></button>
-      <button class="tile2 t-friend" data-act="go" data-to="friends"><span class="tico">🤝</span><b>フレンド</b><small>${st?st.friends.filter(f=>f.status==='accepted').length:0}人</small>${fb?`<i class="dot">${fb}</i>`:''}</button>
+    <section class="stage">
+      <div class="moon" aria-hidden="true"></div>
+      <div class="stage-in">
+        <span class="eyebrow">月夜の心理戦</span>
+        <h1 class="logo">人狼<span>将棋</span></h1>
+        <p class="tagline">正体を隠した6枚で、相手の王様を狙え。</p>
+        <button class="btn gold xl" data-act="go" data-to="battle">${UI.sword}対戦する</button>
+      </div>
+      <div class="stage-pcs" aria-hidden="true">${['wolf','king','seer'].map((t,i)=>`<span class="spc spc${i}">${tile(t,{look:myLook()})}</span>`).join('')}</div>
+    </section>
+    <button class="feature b-${bk}" data-act="go" data-to="gacha">
+      <span class="ftag">${bk==='S'?'日曜限定':'本日のガチャ'}</span>
+      <b class="fname">${esc(BN.name)}</b><small class="fdesc">${esc(BN.desc)}</small>
+      <span class="fchars">${feat.slice(0,8).map(i=>`<span class="fc">${tile(i.char)}</span>`).join('')}</span>
+      <span class="fgo">ガチャへ ›</span>
+    </button>
+    <div class="quick">
+      <button class="qcard" data-act="go" data-to="missions">${mr?`<i class="dot">${mr}</i>`:''}<span class="qico">${UI.mission}</span><b>デイリー</b>
+        <span class="qbar"><i style="width:${done/MISSIONS.length*100}%"></i></span><small>今日 ${done}/${MISSIONS.length} 達成</small></button>
+      <button class="qcard" data-act="go" data-to="collection"><span class="qico">${UI.coll}</span><b>コレクション</b>
+        <span class="qbar"><i style="width:${allItems.length?have/allItems.length*100:0}%"></i></span><small>${have}/${allItems.length} 所持</small></button>
     </div>
     ${M.err?`<p class="err">${esc(M.err)}</p>`:''}
     ${rulesHTML()}`;
 }
-function backBar(t){return`<div class="top"><button class="btn ghost small" data-act="go" data-to="home">ホーム</button><h2 class="ttlh">${t}</h2><span class="spacer"></span><span class="coin static">${coinIcon}<b>${M.st?M.st.coins:'…'}</b></span></div>`}
+// 対戦の入り口
+function renderBattle(){
+  const fr=M.st?M.st.friends.filter(f=>f.status==='accepted').length:0;
+  return`${backBar('対戦')}
+    <button class="mode-card m-online" data-act="online"><span class="mico">${UI.globe}</span><span class="mtxt"><b>オンライン対戦</b><small>部屋コードで、それぞれのスマホから対戦。観戦もここから</small></span><span class="marr">›</span></button>
+    <button class="mode-card m-local" data-act="local"><span class="mico">${UI.phone}</span><span class="mtxt"><b>1台で対戦</b><small>スマホを交代で渡して、2人で遊ぶ</small></span><span class="marr">›</span></button>
+    ${myName()?`<button class="mode-card m-friend" data-act="go" data-to="friends"><span class="mico">${UI.friend}</span><span class="mtxt"><b>フレンドを誘う</b><small>フレンド ${fr}人。誘うとすぐ部屋ができます</small></span><span class="marr">›</span></button>`:''}
+    ${rulesHTML()}`;
+}
+// 画面下のタブ
+const UI={
+  home:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11 12 3.8l8.5 7.2V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/></svg>',
+  gacha:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="5.8"/><path d="M5.5 13.2h13V20a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z"/><circle cx="12" cy="17" r="1.7"/><path d="M9 7.2a3.3 3.3 0 0 1 2.4-2"/></svg>',
+  friend:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.4"/><path d="M2.6 20.5c.6-3.7 3.2-5.7 6.4-5.7s5.8 2 6.4 5.7z"/><circle cx="17.2" cy="9" r="2.7"/><path d="M16.2 14.3c2.8.2 4.8 2 5.3 5.2"/></svg>',
+  mission:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3" width="15" height="18" rx="2.2"/><path d="m8 9.3 2.1 2.1L14.6 7M8 15.5h8"/></svg>',
+  coll:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><path d="m17 13.3 1.1 2.3 2.5.4-1.8 1.8.4 2.5-2.2-1.2-2.2 1.2.4-2.5-1.8-1.8 2.5-.4z"/></svg>',
+  sword:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 3.5H20.5V9.5L9 21 3 15zM6 12l6 6M3.5 20.5l3-3"/></svg>',
+  globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3.6 3.2 14.4 0 18M12 3c-3.2 3.6-3.2 14.4 0 18"/></svg>',
+  phone:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10.8 18.4h2.4M3 9l2 2-2 2M21 9l-2 2 2 2"/></svg>',
+};
+const NAV=[['home','ホーム','home'],['gacha','ガチャ','gacha'],['friends','フレンド','friend'],['missions','ミッション','mission']];
+const NAV_OF={home:'home',battle:'home',collection:'home',online:'home',gacha:'gacha',friends:'friends',missions:'missions'};
+function showNav(){const s=S.screen;if(!myName()||P.editing)return false;if(s==='local')return false;if(s==='online')return !O.code;return s in NAV_OF}
+function navBar(){
+  const cur=NAV_OF[S.screen],badge={missions:missionsReady(),friends:friendBadge()};
+  return`<nav class="bnav" aria-label="メニュー">${NAV.map(([k,l,ic])=>`<button class="bn${cur===k?' on':''}" data-act="go" data-to="${k}" ${cur===k?'aria-current="page"':''}><span class="bni">${UI[ic]}</span><span class="bnl">${l}</span>${badge[k]?`<i class="dot">${badge[k]}</i>`:''}</button>`).join('')}</nav>`;
+}
+function backBar(t,back){return`<div class="top">${back?`<button class="btn ghost small" data-act="go" data-to="${back}">‹ 戻る</button>`:''}<h2 class="ttlh">${t}</h2><span class="spacer"></span><span class="coin static">${coinIcon}<b>${M.st?M.st.coins:'…'}</b></span></div>`}
 
 /* ---- avatar ---- */
 function avatarModal(){
@@ -943,10 +1008,19 @@ async function claimAch(id){
 }
 
 /* ---- collection ---- */
-const TABS=[['char','キャラ'],['skin','着せ替え'],['frame','枠の色'],['wolf','人狼の毛色'],['back','駒裏'],['title','称号'],['stamp','スタンプ']];
+const TABS=[['deck','編成'],['char','キャラ'],['skin','着せ替え'],['frame','枠の色'],['wolf','人狼の毛色'],['back','駒裏'],['title','称号'],['stamp','スタンプ']];
 function renderCollection(){
-  const st=M.st;if(!st)return`${backBar('コレクション')}<div class="card"><p class="muted">読み込み中…</p></div>`;
+  const st=M.st;if(!st)return`${backBar('コレクション','home')}<div class="card"><p class="muted">読み込み中…</p></div>`;
   const own=owned(),tab=M.tab,look=myLook();
+  if(tab==='deck'){
+    if(!M.deck)M.deck={arr:fitDeck(savedDeck(),ownedChars()),sel:null,msg:''};
+    const D=M.deck,pool=[...SWAP_BASE,...ownedChars()];
+    return`${backBar('コレクション','home')}
+      <div class="tabs" role="tablist">${TABS.map(([k,l])=>`<button class="tab${k===tab?' on':''}" role="tab" aria-selected="${k===tab}" data-act="tab" data-tab="${k}">${l}</button>`).join('')}</div>
+      <div class="card deckhead"><b>デフォルト編成</b><p class="muted">対戦の配置画面は、最初からこの並びになります(対戦ごとに変えることもできます)。下の2段があなたの陣地で、上の段が前列です。変更は自動で保存されます。</p></div>
+      ${setupHTML(D.arr,D.sel?.i,pool,look,D.msg)}${setupControls()}${rankCard()}
+      ${NEWC.some(c=>!ownedChars().includes(c))?'<p class="muted">新キャラはガチャで手に入れると編成に入れられます。</p>':''}`;
+  }
   const list=(tab==='stamp'?[...DEFAULT_STAMPS,...ITEMS.filter(i=>i.kind==='stamp')]:tab==='title'?[...ACH_ITEMS,...ITEMS.filter(i=>i.kind==='title')]:ITEMS.filter(i=>i.kind===tab)).sort((a,b)=>RARITY_ORDER.indexOf(a.rarity)-RARITY_ORDER.indexOf(b.rarity));
   const isOwned=i=>own.has(i.id)||DEFAULT_STAMPS.some(s=>s.id===i.id);
   const equipped=i=>tab==='title'?st.title===i.id:look[tab]===i.id;
@@ -954,7 +1028,7 @@ function renderCollection(){
   const preview=`<div class="card preview"><div class="prevrow">${['king','wolf','seer'].map(t=>tile(t,{look})).join('')}${tile(null,{hidden:true,look})}</div>
     <div class="prevname">${avatar(avOf(O.uid),'sm')}${titleTag(st.title)}<b>${esc(myName())}</b><p class="muted">いまの見た目(右端が相手から見える駒裏)</p></div></div>`;
   const help={char:'持っている新キャラは、オンライン対戦の編成で使えます。',skin:'自分の駒の見た目が変わります。',frame:'自分の駒の枠の色が変わります。',wolf:'人狼の絵の色が変わります。',back:'相手から見える「？」の駒の柄が変わります。',title:'名前の前に表示されます。金色・虹色の称号はアチーブメント限定です。',stamp:'対戦中に送れます。'}[tab];
-  return`${backBar('コレクション')}${preview}
+  return`${backBar('コレクション','home')}${preview}${tab==='char'?rankCard():''}
     <div class="tabs" role="tablist">${TABS.map(([k,l])=>`<button class="tab${k===tab?' on':''}" role="tab" aria-selected="${k===tab}" data-act="tab" data-tab="${k}">${l}</button>`).join('')}</div>
     <p class="muted">${help} ${cnt}/${list.length} 所持</p>
     <div class="igrid">${list.map(i=>{
@@ -1002,11 +1076,21 @@ async function inviteFriend(uid){
 }
 
 /* ===== root ===== */
+function deckAct(a,el){
+  const D=M.deck,ar=D.arr;D.msg='';
+  if(a==='swap'){const i=+el.dataset.i;if(D.sel&&D.sel.i!=null&&D.sel.i!==i){[ar[D.sel.i],ar[i]]=[ar[i],ar[D.sel.i]];D.sel=null}else D.sel=D.sel&&D.sel.i===i?null:{i}}
+  else if(a==='pick'){D.msg=pickInto(ar,D.sel?.i,el.dataset.t);if(!D.msg)D.sel=null}
+  else if(a==='preset'){D.arr=PRESETS[+el.dataset.k].a.slice();D.sel=null}
+  else if(a==='shuffle'){shuffle(ar);D.sel=null}
+  if(validDeck(D.arr))store.set('jinro-deck',JSON.stringify(D.arr));
+  render();
+}
 function render(){
   const app=document.getElementById('app');
   const ae=document.activeElement,keep=ae&&['code','pname','fcode'].includes(ae.id)?{id:ae.id,v:ae.value}:null;
   const scr=S.screen;
-  let h=scr==='local'?renderLocal():scr==='online'?renderOnline():scr==='gacha'?renderGacha():scr==='missions'?renderMissions():scr==='collection'?renderCollection():scr==='friends'?renderFriends():renderHome();
+  let h=scr==='local'?renderLocal():scr==='online'?renderOnline():scr==='gacha'?renderGacha():scr==='missions'?renderMissions():scr==='collection'?renderCollection():scr==='friends'?renderFriends():scr==='battle'?renderBattle():renderHome();
+  const nav=showNav();if(nav)h+=navBar();app.classList.toggle('hasnav',nav);
   if(M.modal?.type==='login'&&scr!=='online'&&scr!=='local')h+=loginModal();
   if(M.modal?.type==='avatar')h+=avatarModal();
   if(M.anim&&M.anim.results!==undefined&&scr==='gacha')h+=gachaOverlay();
@@ -1016,7 +1100,7 @@ function render(){
   updateClocks();
 }
 async function metaAct(a,el){
-  if(a==='go'){const to=el.dataset.to;M.modal=null;M.err='';if(M.anim&&M.anim.phase==='open')M.anim=null;if(to!=='home'&&!myName()){S.screen='home';render();return}S.screen=to;render();window.scrollTo(0,0);if(to!=='home')refreshState();return}
+  if(a==='go'){const to=el.dataset.to;M.modal=null;M.err='';if(M.anim&&M.anim.phase==='open')M.anim=null;if(to!=='home'&&to!=='battle'&&!myName()){S.screen='home';render();return}S.screen=to;render();window.scrollTo(0,0);if(to!=='home')refreshState();return}
   if(a==='saveName')return saveName(document.getElementById('pname')?.value);
   if(a==='editName'){P.editing=true;render();return}
   if(a==='cancelName'){P.editing=false;render();return}
@@ -1046,9 +1130,10 @@ async function metaAct(a,el){
 const META=new Set(['gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
 document.getElementById('app').addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const a=el.dataset.act;
-  if(a==='home'){if(S.screen==='online')leaveRoom(true);S.screen='home';render();refreshState();return}
+  if(a==='home'){const wasGame=S.screen==='online'||S.screen==='local';if(S.screen==='online')leaveRoom(true);S.screen=wasGame?'battle':'home';render();refreshState();window.scrollTo(0,0);return}
   if(a==='local'){if(S.screen==='online')leaveRoom(true);localNew();S.screen='local';render();return}
   if(a==='online'){S.screen='online';O.err='';render();return}
+  if(S.screen==='collection'&&M.deck&&['swap','pick','preset','shuffle'].includes(a))return deckAct(a,el);
   if(META.has(a)&&!(S.screen==='online'&&a==='saveName'))return metaAct(a,el);
   if(S.screen==='local'){localAct(a,el);render()}
   else if(S.screen==='online')onlineAct(a,el);
