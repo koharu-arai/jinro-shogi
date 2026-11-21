@@ -30,6 +30,8 @@ export const CHARS = {
   cursed:   { nm: '呪われた者', band: '#4c1d95', m: [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]], d: '全方向に1マス。ただし隠れた人狼に返り討ちにされると、消えずに相手の駒に寝返る。',
     icon: `<circle cx="24" cy="24" r="17" fill="#c4b5fd" stroke="${D}" stroke-width="2.4"/><path d="M24 9 L27 19 L37 19 L29 25 L32 35 L24 29 L16 35 L19 25 L11 19 L21 19 Z" fill="none" stroke="#4c1d95" stroke-width="1.6" stroke-linejoin="round" opacity=".55"/><circle cx="18" cy="22" r="3.4" fill="#fff" stroke="${D}" stroke-width="1.8"/><circle cx="30" cy="22" r="3.4" fill="#fff" stroke="${D}" stroke-width="1.8"/><circle cx="18" cy="22" r="1.2" fill="${D}"/><circle cx="30" cy="22" r="1.2" fill="${D}"/><path d="M18 31 Q24 28 30 31" fill="none" stroke="${D}" stroke-width="2" stroke-linecap="round"/><path d="M6 38 Q12 34 16 38 M32 38 Q36 34 42 38" fill="none" stroke="${D}" stroke-width="2.2" stroke-linecap="round"/>` },
 };
+// 全身イラスト(ガチャ結果・キャラ詳細で使う。盤上の駒は icon のまま)
+for (const k of Object.keys(CHARS)) CHARS[k].fullbody = `chara/char-${k}.webp`;
 
 // 曜日ごとのガチャ(1=月 … 7=日、日本時間)
 export const BANNERS = {

@@ -870,9 +870,11 @@ function loginModal(){
 }
 
 /* ---- gacha ---- */
+// 全身イラスト。画像がまだ無いときは駒アイコンを出す
+function portrait(k,cls=''){const c=CHARS[k];return`<span class="portrait ${cls}">${tile(k,{})}${c?.fullbody?`<img src="${c.fullbody}" alt="${esc(c.nm)}" loading="lazy" decoding="async" onload="this.parentNode.classList.add('hasimg')" onerror="this.remove()">`:''}</span>`}
 function itemArt(it,big){
   if(!it)return'';
-  if(it.kind==='char')return tile(it.char,{});
+  if(it.kind==='char')return portrait(it.char);
   if(it.kind==='skin')return tile('king',{look:{skin:it.id}});
   if(it.kind==='frame')return tile('knight',{look:{frame:it.id}});
   if(it.kind==='wolf')return tile('wolf',{look:{wolf:it.id}});
@@ -937,6 +939,7 @@ function gachaOverlay(){
   if(A.phase==='open'){
     const tokens=A.results.reduce((s,r)=>s+(r.token||0),0),coins=A.results.reduce((s,r)=>s+(r.refund||0),0);
     return`<div class="modal gmodal best-${best}"><div class="mbox wide"><span class="tag">ガチャ結果</span>${best==='LR'||best==='SSR'?`<h2 class="shout s-${best}">${best==='LR'?'レジェンドレア！！':'超激レア！'}</h2>`:''}
+      ${(()=>{const cs=[...new Map(A.results.filter(r=>ITEM[r.item]?.kind==='char').map(r=>[r.item,r])).values()];return cs.length?`<div class="spot">${cs.map(r=>{const it=ITEM[r.item];return`<button class="spotc r-${it.rarity}" data-act="charInfo" data-c="${it.char}">${portrait(it.char,'big')}<span class="rar r-${it.rarity}">${it.rarity}</span><b>${esc(it.name)}</b>${r.dup?'':'<small class="new">NEW</small>'}</button>`}).join('')}</div>`:''})()}
       <div class="gres n${A.results.length}">${A.results.map((r,i)=>itemCard(ITEM[r.item],{delay:i*110,extra:r.token?`<small class="dup tk">被り → 特別コイン+${r.token}</small>`:r.dup?`<small class="dup">被り → +${r.refund}コイン</small>`:'<small class="new">NEW</small>'})).join('')}</div>
       ${coins||tokens?`<p class="muted center">被りの分 ${coins?`+${coins}コイン`:''}${coins&&tokens?'・':''}${tokens?`特別コイン+${tokens}枚(いま${M.st.tokens}/${TOKEN_COST}枚)`:''}</p>`:''}
       <div class="row center"><button class="btn ghost" data-act="go" data-to="collection">コレクション</button>
@@ -1033,7 +1036,7 @@ function renderCollection(){
     <p class="muted">${help} ${cnt}/${list.length} 所持</p>
     <div class="igrid">${list.map(i=>{
       const o=isOwned(i),eq=equipped(i),canEq=o&&['skin','frame','wolf','back','title'].includes(tab);
-      const extra=tab==='char'&&o?`<small class="cdesc">${esc(CHARS[i.char].d)}</small>`:canEq?`<button class="btn ${eq?'ghost':'orange'} small" data-act="equip" data-slot="${tab}" data-id="${eq?'':i.id}">${eq?'外す':'つける'}</button>`:'';
+      const extra=tab==='char'?`<button class="btn ghost small" data-act="charInfo" data-c="${i.char}">詳しく</button>`:canEq?`<button class="btn ${eq?'ghost':'orange'} small" data-act="equip" data-slot="${tab}" data-id="${eq?'':i.id}">${eq?'外す':'つける'}</button>`:'';
       return itemCard(i,{locked:!o,on:eq,extra});
     }).join('')}</div>${M.err?`<p class="err">${esc(M.err)}</p>`:''}`;
 }
@@ -1076,6 +1079,15 @@ async function inviteFriend(uid){
 }
 
 /* ===== root ===== */
+function charModal(){
+  const k=M.modal.c,c=CHARS[k],it=CHAR_ITEM[k],has=owned().has(it?.id);
+  return`<div class="modal cmodal"><div class="mbox charbox r-${it?.rarity}"><span class="tag">キャラ詳細</span>${portrait(k,'xl')}
+    <div class="row center"><span class="rar big r-${it?.rarity}">${it?.rarity}</span><h2>${esc(c.nm)}</h2></div>
+    <p class="cdesc2">${esc(c.d)}</p>
+    <div class="cmove">${tile(k,{})}<small>動ける方向</small></div>
+    ${has?'':'<p class="muted">まだ持っていません。ガチャで手に入ります。</p>'}
+    <button class="btn orange" data-act="closeModal">閉じる</button></div></div>`;
+}
 function deckAct(a,el){
   const D=M.deck,ar=D.arr;D.msg='';
   if(a==='swap'){const i=+el.dataset.i;if(D.sel&&D.sel.i!=null&&D.sel.i!==i){[ar[D.sel.i],ar[i]]=[ar[i],ar[D.sel.i]];D.sel=null}else D.sel=D.sel&&D.sel.i===i?null:{i}}
@@ -1093,6 +1105,7 @@ function render(){
   const nav=showNav();if(nav)h+=navBar();app.classList.toggle('hasnav',nav);
   if(M.modal?.type==='login'&&scr!=='online'&&scr!=='local')h+=loginModal();
   if(M.modal?.type==='avatar')h+=avatarModal();
+  if(M.modal?.type==='char')h+=charModal();
   if(M.anim&&M.anim.results!==undefined&&scr==='gacha')h+=gachaOverlay();
   if(M.toast)h+=`<div class="toast" role="status">${esc(M.toast)}</div>`;
   app.innerHTML=h;
@@ -1105,6 +1118,7 @@ async function metaAct(a,el){
   if(a==='editName'){P.editing=true;render();return}
   if(a==='cancelName'){P.editing=false;render();return}
   if(a==='closeModal'){M.modal=null;render();return}
+  if(a==='charInfo'){M.modal={type:'char',c:el.dataset.c};render();return}
   if(a==='openLogin'){M.modal={type:'login'};render();return}
   if(a==='claimLogin'){M.modal.busy=true;render();try{const r=await rpc('jinro_claim_login');M.st.coins=r.coins;M.st.login_claimable=false;M.st.streak=r.streak;M.modal={type:'login',result:r}}catch(e){M.modal=null;M.err=e.message;refreshState()}render();return}
   if(a==='openAvatar'){M.modal={type:'avatar',av:{...avOf(O.uid)}};render();return}
@@ -1127,7 +1141,7 @@ async function metaAct(a,el){
   if(a==='inviteFriend')return inviteFriend(el.dataset.uid);
   if(a==='acceptInvite'){S.screen='online';render();return joinRoom(el.dataset.code)}
 }
-const META=new Set(['gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
+const META=new Set(['charInfo','gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
 document.getElementById('app').addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const a=el.dataset.act;
   if(a==='home'){const wasGame=S.screen==='online'||S.screen==='local';if(S.screen==='online')leaveRoom(true);S.screen=wasGame?'battle':'home';render();refreshState();window.scrollTo(0,0);return}

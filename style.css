@@ -543,3 +543,21 @@ body{background:#140c3c}
 .mist i{position:absolute;left:-30%;width:160%;height:70px;bottom:min(6vh,40px);border-radius:50%;background:radial-gradient(closest-side,rgba(200,190,240,.22),transparent);filter:blur(6px);animation:mist 40s linear infinite}
 .mist i:nth-child(2){bottom:min(12vh,90px);height:50px;opacity:.7;animation-duration:60s;animation-direction:reverse}
 @keyframes mist{0%{transform:translateX(-10%)}50%{transform:translateX(10%)}100%{transform:translateX(-10%)}}
+/* 全身イラスト(白背景の画像をカード枠で見せる) */
+.portrait{position:relative;display:inline-grid;place-items:center;--pw:64px;width:var(--pw);height:calc(var(--pw)*1.25);--cell:calc(var(--pw)*.9)}
+.portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .3s}
+.portrait.hasimg{border-radius:12px;background:radial-gradient(circle at 50% 35%,#ffffff,#f3eefc 70%,#e6dcfa);box-shadow:inset 0 0 0 2px #fff,0 0 0 2px var(--gold2),0 6px 14px rgba(0,0,0,.35);overflow:hidden}
+.portrait.hasimg img{opacity:1}.portrait.hasimg .pc{visibility:hidden}
+.portrait.big{--pw:110px}.portrait.xl{--pw:190px}
+.icard.r-LR .portrait.hasimg,.spotc.r-LR .portrait.hasimg,.charbox.r-LR .portrait.hasimg{box-shadow:inset 0 0 0 2px #fff,0 0 0 3px #ff6fae,0 0 18px rgba(255,120,200,.8);animation:lrglow 2.4s linear infinite}
+.icard.r-SSR .portrait.hasimg,.spotc.r-SSR .portrait.hasimg,.charbox.r-SSR .portrait.hasimg{box-shadow:inset 0 0 0 2px #fff,0 0 0 3px #ffc552,0 0 16px rgba(255,197,82,.8)}
+.spot{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:4px 0 6px}
+.spotc{position:relative;border:0;background:none;color:var(--ink);display:grid;justify-items:center;gap:4px;padding:0;animation:spotin .6s cubic-bezier(.2,1.5,.4,1) both}
+.spotc .rar{position:absolute;top:-6px;left:-6px}
+.spotc b{font-family:var(--font-m);font-size:16px}
+@keyframes spotin{from{opacity:0;transform:scale(.6) rotate(-6deg)}to{opacity:1;transform:none}}
+.modal.cmodal{z-index:50}
+.charbox{gap:10px}.charbox h2{font-size:26px}
+.cdesc2{margin:0;font-size:14px;line-height:1.7;color:var(--ink);text-align:left}
+.cmove{display:grid;justify-items:center;gap:2px;--cell:58px}.cmove small{font-size:11px;color:var(--mute)}
+.row.center{justify-content:center}
