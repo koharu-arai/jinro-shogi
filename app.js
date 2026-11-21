@@ -1159,7 +1159,7 @@ function charSlides(list){
   return`<div class="slides" aria-label="このガチャで出るキャラ">${list.map((i,n)=>{const k=i.char,pf=PROFILE[k]||{},own=owned().has(i.id);
     return`<article class="slide r-${i.rarity}">
       <div class="sl-top"><span class="rar big r-${i.rarity}">${i.rarity}</span><small class="sl-n">${n+1}/${list.length}</small>${own?'<span class="ownd2">所持</span>':''}</div>
-      <div class="sl-art" data-act="artTap">${i.rarity==='LR'||i.rarity==='SSR'?`<span class="aura a-${i.rarity}"></span>`:''}<span class="sl-shadow"></span><span class="sl-chara">${fullbodyImg(k,{cls:'sl',silhouetteIfLocked:false})}<span class="sl-fallback">${tile(k,{})}</span></span>${'<i class="spk"></i>'.repeat(i.rarity==='LR'?8:5)}<span class="sl-shine"></span></div>
+      <div class="sl-art" data-act="artTap">${i.rarity==='LR'||i.rarity==='SSR'?`<span class="aura a-${i.rarity}"></span>`:''}<span class="sl-shadow"></span><span class="sl-bg" style="background-image:url('${ART[k]?.fullbody||''}')"></span><span class="sl-chara">${fullbodyImg(k,{cls:'sl',silhouetteIfLocked:false})}<span class="sl-fallback">${tile(k,{})}</span></span>${'<i class="spk"></i>'.repeat(i.rarity==='LR'?8:5)}<span class="sl-shine"></span></div>
       <h3>${esc(T[k].nm)}${pf.name?`<small>${esc(pf.name)}</small>`:''}</h3>
       ${pf.alias?`<p class="sl-alias">${esc(pf.alias)}</p>`:''}
       ${pf.intro?`<p class="sl-story">${esc(pf.intro)}</p>`:''}
