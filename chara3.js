@@ -103,16 +103,24 @@ function statValue(k, p) {
   return p.ev[a.stat] || 0;
 }
 
+/* 所持しているキャラは全イラスト解放(2026-11-21 本人決定:使用回数の積み上げは廃止方向)。
+   基本6体は最初から所持扱い。新キャラの所持一覧は app.js が setOwnedChars で渡す */
+const BASE_KEYS = ['king', 'wolf', 'villager', 'seer', 'hunter', 'knight'];
+let OWNED_CHARS = new Set();
+export function setOwnedChars(list) { OWNED_CHARS = new Set(list || []); }
+export function isOwnedChar(k) { return BASE_KEYS.includes(k) || OWNED_CHARS.has(k); }
+
 /** いま使える素材 */
 export function unlocks(k) {
   const p = progressOf(k);
   const lr = LR_KEYS.includes(k);
+  const own = isOwnedChar(k);
   return {
     uses: p.uses,
-    icon: p.uses >= 1,
-    expr: p.uses >= 10,
-    prop: p.uses >= 25,
-    full: p.uses >= 50,
+    icon: own || p.uses >= 1,
+    expr: own || p.uses >= 10,
+    prop: own || p.uses >= 25,
+    full: own || p.uses >= 50,
     ach: !!p.ach,
     lux: lr && !!p.ach,        // LR：豪華版の全身・アイコン
     gold: !lr && !!p.ach,      // それ以外：金フレームのアイコン
@@ -121,8 +129,9 @@ export function unlocks(k) {
   };
 }
 
-/** 次に解放されるもの（「あと○回で表情3種」など） */
+/** 次に解放されるもの（「あと○回で表情3種」など）。所持キャラは全部解放済みなので null */
 export function nextLadder(k) {
+  if (isOwnedChar(k)) return null;
   const u = progressOf(k).uses;
   const nx = LADDER.find(x => u < x.n);
   return nx ? { ...nx, left: nx.n - u } : null;

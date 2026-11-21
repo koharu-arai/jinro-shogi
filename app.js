@@ -1,5 +1,5 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { ART, KEYS as C3KEYS, LR_KEYS, PROFILE, STORY, WORLD, LADDER, CHARA_ACH, EXPR_LABEL, unlocks, nextLadder, recordGame, faceIcon, fullbodyImg, lazyImg, artStyle, setArtStyle } from "./chara3.js";
+import { ART, KEYS as C3KEYS, LR_KEYS, PROFILE, STORY, WORLD, LADDER, CHARA_ACH, EXPR_LABEL, unlocks, nextLadder, recordGame, faceIcon, fullbodyImg, lazyImg, artStyle, setArtStyle, setOwnedChars } from "./chara3.js";
 import { CHARS, BANNERS, bannerOfDay, BASE_RARITY, EXP, RANKS, ITEMS, ITEM, ACH_ITEMS, ACHIEVEMENTS, DEFAULT_STAMPS, MISSIONS, RATES, REFUND, TOKEN_REFUND, TOKEN_COST, COST, RARITY_LABEL, RARITY_ORDER, KIND_LABEL, LOGIN } from "./catalog.js";
 
 /* ===== rules data ===== */
@@ -551,7 +551,7 @@ async function refreshState(){
     const st=await rpc('jinro_state');
     if(!st.name){await rpc('jinro_set_name',{p_name:myName()});return refreshState()}
     const same=M.st&&JSON.stringify(M.st)===JSON.stringify(st);if(same&&!M.err)return;   // 変化がなければ描き直さない
-    const first=!M.st;M.st=st;P.names[O.uid]=st.name;P.titles[O.uid]=st.title;if(st.avatar){st.avatar=mergeAvatar(st.avatar);P.avatars[O.uid]=st.avatar}
+    const first=!M.st;M.st=st;setOwnedChars(ownedChars());P.names[O.uid]=st.name;P.titles[O.uid]=st.title;if(st.avatar){st.avatar=mergeAvatar(st.avatar);P.avatars[O.uid]=st.avatar}
     if(first&&st.login_claimable&&!M.modal)M.modal={type:'login'};
     loadPeople([O.uid]);
   }catch(e){M.err=e.message}
@@ -1281,7 +1281,7 @@ async function pull(n){
   let r;
   try{r=await rpc('jinro_gacha',{p_count:n,p_pick:null})}
   catch(e){M.anim=null;M.err=e.message;render();return}
-  M.st.coins=r.coins;M.st.tokens=r.tokens;r.results.forEach(x=>{if(!M.st.items.includes(x.item))M.st.items.push(x.item)});
+  M.st.coins=r.coins;M.st.tokens=r.tokens;r.results.forEach(x=>{if(!M.st.items.includes(x.item))M.st.items.push(x.item)});setOwnedChars(ownedChars());
   const best=r.results.reduce((b,x)=>RANK(x.rarity)<RANK(b)?x.rarity:b,'N');
   const A={phase:'turn',n,results:r.results,best,kakutei:(best==='LR'||best==='SSR')?best:null};
   await new Promise(res=>setTimeout(res,Math.max(0,1500-(Date.now()-t0))));
@@ -1290,7 +1290,7 @@ async function pull(n){
   A.phase='drop';M.anim=A;render();sfx('capsule_drop');
 }
 async function exchange(id){
-  try{const r=await rpc('jinro_exchange',{p_item:id});M.st.tokens=r.tokens;M.st.items.push(id);toast(`${ITEM[id].name}を手に入れました！`)}
+  try{const r=await rpc('jinro_exchange',{p_item:id});M.st.tokens=r.tokens;M.st.items.push(id);setOwnedChars(ownedChars());toast(`${ITEM[id].name}を手に入れました！`)}
   catch(e){M.err=e.message;render()}
 }
 
@@ -1415,7 +1415,7 @@ const hasChar=k=>BASE.includes(k)||owned().has(CHAR_ITEM[k]?.id);
 // 解放の進み具合(図鑑・詳細で使う)
 function ladderHTML(k){
   const u=unlocks(k);
-  return`<ol class="ladder">${LADDER.map(x=>{const ok=u[x.key];return`<li class="${ok?'ok':''}"><span>${ok?'✓':'🔒'}</span><b>${x.label}</b><small>${ok?'解放済み':`使用${x.n}回で解放(あと${x.n-u.uses}回)`}</small></li>`}).join('')}</ol>`;
+  return`<ol class="ladder">${LADDER.map(x=>{const ok=u[x.key];return`<li class="${ok?'ok':''}"><span>${ok?'✓':'🔒'}</span><b>${x.label}</b><small>${ok?'解放済み':hasChar(k)?`使用${x.n}回で解放(あと${x.n-u.uses}回)`:'ガチャで手に入れると解放'}</small></li>`}).join('')}</ol>`;
 }
 function achHTML(k){
   const u=unlocks(k),a=CHARA_ACH[k],lr=LR_KEYS.includes(k);
@@ -1434,7 +1434,7 @@ function charModal(){
   const known=u.uses>0;
   const speaker=e&&u.expr?`<span class="spk">${lazyImg(ART[k].expr[e],EXPR_LABEL[e])}</span>`:u.icon?faceIcon(k,iconSvg(k),{cls:'spk'}):'';
   return`<div class="modal cmodal"><div class="mbox charbox r-${r}"><span class="tag">キャラ詳細</span>
-    <div class="cfull">${fullbodyImg(k,{cls:'big'})}${!u.full?`<small class="lockhint">全身イラストは使用50回で解放(あと${Math.max(0,50-u.uses)}回)</small>`:''}</div>
+    <div class="cfull">${fullbodyImg(k,{cls:'big'})}${!u.full?`<small class="lockhint">${has?'全身イラストは使用50回で解放(あと'+Math.max(0,50-u.uses)+'回)':'ガチャで手に入れると全身イラストが解放されます'}</small>`:''}</div>
     <div class="row center"><span class="rar big r-${r}">${r}</span><h2>${esc(T[k].nm)}<small class="pname">${esc(pf.name)}</small></h2></div>
     <p class="alias">${esc(pf.alias)}</p>
     <p class="wherebox">${whereTag(k)}<small>${esc(whereOf(k).long)}</small></p>
