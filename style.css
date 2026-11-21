@@ -561,3 +561,13 @@ body{background:#140c3c}
 .cdesc2{margin:0;font-size:14px;line-height:1.7;color:var(--ink);text-align:left}
 .cmove{display:grid;justify-items:center;gap:2px;--cell:58px}.cmove small{font-size:11px;color:var(--mute)}
 .row.center{justify-content:center}
+/* CPU対戦 */
+.mode-card.m-cpu{align-items:flex-start;background:radial-gradient(80% 120% at 100% 0%,rgba(120,220,255,.25),transparent 60%),linear-gradient(135deg,#2d2a9e,#160e58)}
+.lvrow{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.lvbtn{border:1px solid var(--goldline);border-radius:12px;padding:7px 4px;background:rgba(10,6,40,.4);color:var(--ink);display:grid;justify-items:center;gap:1px}
+.lvbtn b{font-size:14px}.lvbtn small{font-size:12px;color:var(--gold1);display:inline-flex;align-items:center;gap:3px}
+.lvbtn .cn{width:13px;height:13px}
+.lvbtn.lv-hard{background:linear-gradient(180deg,rgba(255,197,82,.25),rgba(10,6,40,.4))}
+.lvbtn:active{transform:translateY(1px)}
+.card.reward{justify-items:center;text-align:center;background:linear-gradient(180deg,rgba(255,215,120,.28),rgba(34,22,90,.85))}
+.card.reward b{font-family:var(--font-m);font-size:22px;color:var(--gold1)}

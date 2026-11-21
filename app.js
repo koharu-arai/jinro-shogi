@@ -168,6 +168,75 @@ function biteBar(G,sel){
   const n=biteTargets(G,sel.r,sel.c).length;
   return`<div class="bitebar"><button class="btn ${sel.bite?'danger':'orange'} small" data-act="bite" ${n?'':'disabled'}>${sel.bite?'噛みつきをやめる':'🦇 噛みつく(1局に1回)'}</button><span class="muted">${n?(sel.bite?'噛みつく相手の駒をタップ':'隣の相手の駒を味方に変える'):'隣に相手の駒がいません'}</span></div>`;
 }
+
+/* ===== CPU(相手の駒の正体は見ない。見えない駒は「ありそうな駒」を何通りも仮定して読む) ===== */
+const CPU_LV={easy:{nm:'やさしい',coin:3,depth:1,k:3,noise:3,rand:.35},normal:{nm:'ふつう',coin:5,depth:2,k:6,noise:.8,rand:0},hard:{nm:'つよい',coin:10,depth:3,k:10,noise:.1,rand:0}};
+const VAL={king:0,wolf:7,seer:4,knight:4,hunter:4,villager:2,fox:7,thief:5,vampire:6,cursed:5,medium:3,tough:5,nekomata:4,teru:3};
+function genMoves(G,p,limitDrops){
+  const B=G.board,mv=[];
+  for(let r=0;r<5;r++)for(let c=0;c<3;c++){const P=B[r][c];if(!P||P.owner!==p)continue;
+    for(const[nr,nc]of targets(G,r,c))mv.push({k:'m',r,c,nr,nc});
+    for(const[nr,nc]of biteTargets(G,r,c))mv.push({k:'b',r,c,nr,nc});}
+  if(rulesOf(G).drops&&G.hands[p].length){
+    const seen=new Set(),emp=[];for(let r=0;r<5;r++)for(let c=0;c<3;c++)if(!B[r][c])emp.push([r,c]);
+    G.hands[p].forEach((t,i)=>{if(seen.has(t))return;seen.add(t);let e=emp;if(limitDrops&&e.length>4)e=e.slice().sort(()=>Math.random()-.5).slice(0,4);e.forEach(([nr,nc])=>mv.push({k:'d',i,nr,nc}))});
+  }
+  return mv;
+}
+function playMove(G,m){
+  const out=m.k==='m'?applyMove(G,m.r,m.c,m.nr,m.nc):m.k==='b'?applyBite(G,m.r,m.c,m.nr,m.nc):applyDrop(G,m.i,m.nr,m.nc);
+  if(G.winner==null)G.turn=nextTurn(G);
+  return out;
+}
+function evalFor(G,c){
+  if(G.winner!=null)return G.winner===c?1e4:-1e4;
+  let s=0;const R=rulesOf(G);
+  for(let r=0;r<5;r++)for(let x=0;x<3;x++){const P=G.board[r][x];if(!P)continue;const v=VAL[P.type]??3,sg=P.owner===c?1:-1;
+    s+=sg*v;if(P.owner===c&&!P.shown&&!(P.type==='wolf'&&P.revealed))s+=.3;if(P.type==='wolf'&&!P.revealed)s+=sg*1.5;
+    if(P.type==='king'&&R.try){const prog=P.owner===0?4-r:r;s+=sg*prog*.4}
+    if(P.type==='tough'&&P.hurt)s-=sg*2;}
+  if(R.drops)for(const p of[0,1])for(const t of G.hands[p])s+=(p===c?1:-1)*(VAL[t]??3)*.6;
+  // 王様が取られそう
+  for(const p of[0,1]){let kr=-1,kc=-1;for(let r=0;r<5;r++)for(let x=0;x<3;x++){const P=G.board[r][x];if(P&&P.owner===p&&P.type==='king'){kr=r;kc=x}}
+    if(kr>=0&&attacked(G,kr,kc,1-p))s+=(p===c?-1:1)*(G.turn===p?3:40);}
+  return s;
+}
+// 見えない相手の駒に、ありそうな正体を割り当てる
+function determinize(G,c){
+  const D=clone(G),pool=[...SWAP_BASE,...(rulesOf(G).chars?NEWC:[])];const unk=[],known=new Set();
+  for(let r=0;r<5;r++)for(let x=0;x<3;x++){const P=D.board[r][x];if(!P||P.owner===c)continue;
+    if(P.shown||(P.type==='wolf'&&P.revealed))known.add(P.type);else unk.push(P);}
+  const bag=[];if(!known.has('king'))bag.push('king');if(!known.has('wolf')&&Math.random()<.75)bag.push('wolf');
+  const rest=pool.filter(t=>!known.has(t)).sort(()=>Math.random()-.5);
+  while(bag.length<unk.length)bag.push(rest.length?rest.pop():'villager');
+  bag.length=unk.length;bag.sort(()=>Math.random()-.5);
+  // 王様は必ず盤上にいる
+  if(!known.has('king')&&unk.length&&!bag.includes('king'))bag[0]='king';
+  unk.forEach((P,i)=>{P.type=bag[i];P.revealed=false;delete P.orig});
+  return D;
+}
+function search(G,d,c,alpha,beta){
+  if(G.winner!=null||d===0)return evalFor(G,c)*(G.winner!=null?1+d*.01:1);
+  const p=G.turn,ms=genMoves(G,p,true);if(!ms.length)return evalFor(G,c);
+  if(p===c){let best=-Infinity;for(const m of ms){const H=clone(G);playMove(H,m);best=Math.max(best,search(H,d-1,c,alpha,beta));alpha=Math.max(alpha,best);if(alpha>=beta)break}return best}
+  let best=Infinity;for(const m of ms){const H=clone(G);playMove(H,m);best=Math.min(best,search(H,d-1,c,alpha,beta));beta=Math.min(beta,best);if(alpha>=beta)break}return best;
+}
+function cpuChoose(G,c,level){
+  const L2=CPU_LV[level]||CPU_LV.normal,ms=genMoves(G,c,false);if(!ms.length)return null;
+  if(Math.random()<L2.rand){const caps=ms.filter(m=>m.k==='m'&&G.board[m.nr][m.nc]),pool=caps.length&&Math.random()<.5?caps:ms;return pool[Math.floor(Math.random()*pool.length)]}
+  const t0=Date.now(),score=new Array(ms.length).fill(0);let k=0;
+  for(;k<L2.k;k++){const D=determinize(G,c);ms.forEach((m,i)=>{const H=clone(D);H.turn=c;playMove(H,m);score[i]+=search(H,L2.depth-1,c,-Infinity,Infinity)});if(Date.now()-t0>1500)break}
+  let bi=0,bv=-Infinity;score.forEach((v,i)=>{const x=v/(k+1)+(Math.random()-.5)*L2.noise*2;if(x>bv){bv=x;bi=i}});
+  return ms[bi];
+}
+function cpuDeck(level,rules){
+  const base=['villager','seer','knight','hunter'];shuffle(base);
+  const a=['king','wolf',...base];
+  if(level==='hard'&&rules.chars){const nc=NEWC.slice();shuffle(nc);a[4]=nc[0];a[5]=nc[1]}
+  // 前列3つ・後列3つ。王様は後列、人狼は前列寄り
+  const front=[a[1],a[2],a[3]],back=[a[4],a[5],a[0]];shuffle(front);shuffle(back);
+  return[...front,...back];
+}
 function shuffle(ar){for(let i=ar.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ar[i],ar[j]]=[ar[j],ar[i]]}}
 function shuffleDeck(ar){shuffle(ar);return ar}
 
@@ -345,7 +414,7 @@ function avatar(av,cls=''){av=av||{c:'wolf',bg:0};const c=T[av.c]?av.c:'wolf';re
 function myLookFor(av){return av&&av.wolf?{wolf:av.wolf}:null}
 function titleTag(id){const it=id&&ITEM[id];return it?`<span class="ttl r-${it.rarity}">${esc(it.name)}</span>`:''}
 
-const ERR={tokens:'特別コインが足りません。',exchange:'そのキャラとは交換できません。',auth:'この端末の合言葉が一致しません。前に使っていた端末で開いてください。',already:'もう受け取り済みです。',coins:'コインが足りません。',notyet:'まだ達成していません。',notfound:'そのフレンドコードの人が見つかりません。',self:'自分のコードです。',notfriend:'フレンドになってから誘えます。',slow:'少し待ってから送ってください。',notowned:'持っていない景品です。',name:'名前は1〜12文字で入力してください。',pick:'日曜日はピックアップするキャラを選んでから引いてください。'};
+const ERR={tokens:'特別コインが足りません。',exchange:'そのキャラとは交換できません。',auth:'この端末の合言葉が一致しません。前に使っていた端末で開いてください。',already:'もう受け取り済みです。',coins:'コインが足りません。',notyet:'まだ達成していません。',notfound:'そのフレンドコードの人が見つかりません。',self:'自分のコードです。',notfriend:'フレンドになってから誘えます。',slow:'少し待ってから送ってください。',notowned:'持っていない景品です。',name:'名前は1〜12文字で入力してください。',pick:'日曜日はピックアップするキャラを選んでから引いてください。',fast:'開始から20秒以上たってから勝つとコインがもらえます。',level:'難易度が正しくありません。'};
 async function rpc(fn,args={}){
   if(!sb)throw new Error('offline');
   const {data,error}=await sb.rpc(fn,{p_uid:O.uid,p_secret:getSecret(),...args});
@@ -393,58 +462,95 @@ async function recordResult(g){
 }
 
 /* ===== local mode (one device) ===== */
-function localNew(){L={phase:'rules',rules:{...DEFAULT_RULES},cover:{p:0,next:'setup'},setup:[savedDeck(),savedDeck()],setupP:0,sel:null,msg:'',G:null,byo:BYO,out:null,notice:'',noticeAlert:false,resignArm:false}}
+function localNew(cpu=null){L={cpu,phase:'rules',rules:{...DEFAULT_RULES},cover:{p:0,next:'setup'},setup:[savedDeck(),savedDeck()],setupP:0,sel:null,msg:'',G:null,byo:BYO,out:null,notice:'',noticeAlert:false,resignArm:false}}
 function localEnd(out){L.sel=null;L.byo=BYO;if(L.G.winner!=null)L.phase='over';else{L.out=out;L.phase='result'}}
 const localLooks=()=>[myLook(),{}];
+const pName=p=>L&&L.cpu?(p===0?'あなた':'CPU'):NAME[p];
+// CPUの手番:少し考えてから指す
+function cpuTurn(){
+  const my=L;if(!my||!my.cpu||!my.G||my.G.winner!=null||my.G.turn!==1||my.phase!=='play')return;
+  my.thinking=true;render();
+  setTimeout(()=>{
+    if(L!==my||my.phase!=='play'||my.G.winner!=null)return;
+    const G=my.G,t0=Date.now(),m=cpuChoose(G,1,my.cpu.level);
+    const wait=Math.max(0,700-(Date.now()-t0));
+    setTimeout(()=>{
+      if(L!==my||my.phase!=='play')return;
+      my.thinking=false;
+      if(!m){G.winner=0;G.reason='CPUが動ける駒がなくなりました';return cpuOver()}
+      const out=m.k==='m'?applyMove(G,m.r,m.c,m.nr,m.nc):m.k==='b'?applyBite(G,m.r,m.c,m.nr,m.nc):applyDrop(G,m.i,m.nr,m.nc);
+      if(G.winner!=null)return cpuOver();
+      const n=nextTurn(G);G.turn=n;my.byo=BYO;
+      my.notice=out.note.replace(/相手/g,'CPU')+(n===1?' CPUがもう1手続けて指します。':'');my.noticeAlert=!!out.alert;my.sel=null;
+      render();if(n===1)cpuTurn();
+    },wait);
+  },60);
+}
+async function cpuOver(){
+  L.phase='over';L.sel=null;L.thinking=false;render();
+  if(L.G.winner!==0||!L.cpu.game)return;
+  try{const r=await rpc('jinro_cpu_win',{p_game:L.cpu.game});L.cpu.reward=r.reward;L.cpu.today=r.today;if(M.st)M.st.coins=r.coins}
+  catch(e){L.cpu.rewardErr=e.message}
+  render();
+}
+async function cpuStartServer(){
+  const my=L;try{const r=await rpc('jinro_cpu_start',{p_level:my.cpu.level});my.cpu.game=r.game;my.cpu.today=r.today}catch(e){my.cpu.game=null}
+}
 function renderLocal(){
-  if(L.phase==='rules')return`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 class="ttlh">1台で対戦</h2></div>${rulesCard(L.rules,true,true)}<button class="btn orange" data-act="localStart">配置へ進む</button>${rulesHTML()}`;
+  if(L.phase==='rules')return`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 class="ttlh">${L.cpu?`CPU対戦・${CPU_LV[L.cpu.level].nm}`:'1台で対戦'}</h2></div>${L.cpu?`<div class="card"><b>勝つと ${CPU_LV[L.cpu.level].coin}コイン</b><p class="muted">あなたが先手です。コインは1日50枚まで、開始から20秒以上たって勝ったときにもらえます(CPU戦は戦績・ランクには入りません)。</p></div>`:''}${rulesCard(L.rules,true,true)}<button class="btn orange" data-act="localStart">配置へ進む</button>${rulesHTML()}`;
   if(L.phase==='cover'){
     const p=L.cover.p,setup=L.cover.next==='setup';
     return`<div class="cover"><h2>${NAME[p]}の番</h2><p>${setup?`${NAME[p]}が駒の配置を決めます。相手に画面を見せないでください。`:`スマホを${NAME[p]}に渡してください。`}</p><button class="btn orange" data-act="uncover">${NAME[p]}です。画面を開く</button><button class="btn ghost small" data-act="home">ホームに戻る</button></div>`;
   }
   if(L.phase==='setup'){
     const pool=[...SWAP_BASE,...(L.rules.chars?NEWC:[])];
-    return`<div class="side"><span class="who">${NAME[L.setupP]}の配置</span><span class="badge">2マスを順にタップで入れ替え</span></div>
+    return`<div class="side"><span class="who">${L.cpu?'あなた':NAME[L.setupP]}の配置</span><span class="badge">2マスを順にタップで入れ替え</span></div>
       ${setupHTML(L.setup[L.setupP],L.sel?.i,pool,localLooks()[L.setupP],L.msg)}${setupControls()}<button class="btn orange" data-act="confirm">この配置で決定</button>${rulesHTML()}`;
   }
   const G=L.G;
   if(L.phase==='over'){
-    return`<section class="hero"><h1 class="over-h">${NAME[G.winner]}の勝ち</h1><p>${esc(G.reason)}。すべての駒を公開しています。</p></section>
+    const cr=L.cpu,rw=cr&&G.winner===0?(cr.reward!=null?`<div class="card reward"><b>${cr.reward>0?`+${cr.reward}コイン獲得！`:'今日のCPU戦コインは上限(50枚)に達しました'}</b><small class="muted">今日のCPU戦 ${cr.today??0}/50コイン</small></div>`:cr.rewardErr?`<p class="muted">${esc(cr.rewardErr==='開始から20秒以上たってから勝つとコインがもらえます。'?cr.rewardErr:'コインは受け取れませんでした('+cr.rewardErr+')')}</p>`:cr.game?'<p class="muted">コインを受け取っています…</p>':'<p class="muted">名前を決めてオンラインにつながると、勝ったときにコインがもらえます。</p>'):'';
+    return`<section class="hero"><h1 class="over-h">${cr?(G.winner===0?'あなたの勝ち！':'CPUの勝ち'):NAME[G.winner]+'の勝ち'}</h1><p>${esc(G.reason)}。すべての駒を公開しています。</p></section>${rw}
       ${boardHTML(G,0,{reveal:true,looks:localLooks()})}<div class="row"><button class="btn orange" data-act="localAgain">もう一度遊ぶ</button><button class="btn ghost" data-act="home">ホームへ</button></div>`;
   }
-  const v=G.turn,op=1-v,play=L.phase==='play';
+  const v=L.cpu?0:G.turn,op=1-v,play=L.phase==='play'&&!(L.cpu&&G.turn===1);
   const again=!play&&L.out&&L.out.same;
-  return`<div class="top"><button class="btn ghost small" data-act="home">退出</button>${clocksHTML(v,op,NAME[v]+'(あなた)',NAME[op],G)}</div>
-    <div class="side"><span class="who">${NAME[op]}</span>${rulesOf(G).drops?`<span class="badge">持ち駒 ${G.hands[op].length}枚</span>`:''}</div>
+  return`<div class="top"><button class="btn ghost small" data-act="home">退出</button>${clocksHTML(v,op,pName(v)+(L.cpu?'':'(あなた)'),pName(op),G)}</div>
+    <div class="side"><span class="who">${pName(op)}</span>${L.cpu&&G.turn===1?'<span class="badge turn">考え中…</span>':''}${rulesOf(G).drops?`<span class="badge">持ち駒 ${G.hands[op].length}枚</span>`:''}</div>
     ${boardHTML(G,v,{sel:L.sel,interactive:play,looks:localLooks()})}
-    <div class="side"><span class="who">${NAME[v]}</span><span class="badge turn">あなたの番</span></div>
+    <div class="side"><span class="who">${pName(v)}</span>${G.turn===v?'<span class="badge turn">あなたの番</span>':''}</div>
     ${play?biteBar(G,L.sel):''}
     ${handHTML(G,v,L.sel,play,localLooks()[v])}
-    ${play&&L.notice?`<div class="status${L.noticeAlert?' alert':''}">${esc(L.notice)}</div>`:''}
-    ${play?`<div class="row"><span class="spacer"></span><button class="btn ${L.resignArm?'danger':'ghost'} small" data-act="resign">${L.resignArm?'もう一度押すと投了':'投了'}</button></div>${rulesHTML()}`
+    ${(play||L.cpu)&&L.notice?`<div class="status${L.noticeAlert?' alert':''}">${esc(L.notice)}</div>`:''}
+    ${L.cpu&&G.turn===1&&L.phase==='play'?'<div class="status wait">CPUが考えています…</div>':''}
+    ${play||L.cpu?`<div class="row"><span class="spacer"></span><button class="btn ${L.resignArm?'danger':'ghost'} small" data-act="resign">${L.resignArm?'もう一度押すと投了':'投了'}</button></div>${rulesHTML()}`
       :`<div class="sheet"><p>${esc(L.out.res)}</p><button class="btn orange" data-act="pass">${again?'続けてもう1手指す':NAME[op]+'に渡す'}</button></div><div style="height:140px"></div>`}`;
 }
 function localAct(a,el){
   if(a!=='resign')L.resignArm=false;
   if(a==='setTime'){L.rules.time=+el.dataset.v}
   else if(a==='setRule'){const [k,v]=el.dataset.v.split(':');L.rules[k]=v==='1'}
-  else if(a==='localStart'){L.phase='cover';L.cover={p:0,next:'setup'}}
+  else if(a==='localStart'){if(L.cpu){L.phase='setup';L.setupP=0;L.sel=null;cpuStartServer()}else{L.phase='cover';L.cover={p:0,next:'setup'}}}
   else if(a==='uncover'){L.phase=L.cover.next;L.sel=null;L.msg='';lastT=null}
   else if(a==='swap'){const i=+el.dataset.i,ar=L.setup[L.setupP];L.msg='';if(L.sel&&L.sel.i!=null&&L.sel.i!==i){[ar[L.sel.i],ar[i]]=[ar[i],ar[L.sel.i]];L.sel=null}else L.sel=L.sel&&L.sel.i===i?null:{i}}
   else if(a==='pick'){L.msg=pickInto(L.setup[L.setupP],L.sel?.i,el.dataset.t);if(!L.msg)L.sel=null}
   else if(a==='preset'){L.setup[L.setupP]=PRESETS[+el.dataset.k].a.slice();L.sel=null}
   else if(a==='shuffle'){shuffle(L.setup[L.setupP]);L.sel=null}
+  else if(a==='confirm'&&L.cpu){L.sel=null;L.msg='';L.setup[1]=cpuDeck(L.cpu.level,L.rules);L.G=newGame(L.setup,L.rules);L.notice='対局開始。あなたが先手です。';L.noticeAlert=false;L.phase='play';lastT=null}
   else if(a==='confirm'){L.sel=null;L.msg='';if(L.setupP===0){L.setupP=1;L.cover={p:1,next:'setup'}}else{L.G=newGame(L.setup,L.rules);L.notice='対局開始。先手から指します。';L.noticeAlert=false;L.cover={p:0,next:'play'}}L.phase='cover'}
   else if(a==='hand'){const i=+el.dataset.i;L.sel=L.sel&&L.sel.hand===i?null:{hand:i}}
   else if(a==='bite'){if(L.sel)L.sel={r:L.sel.r,c:L.sel.c,bite:!L.sel.bite}}
   else if(a==='cell'&&L.phase==='play'){
     const G=L.G,[r,c]=toAbs(G.turn,+el.dataset.r,+el.dataset.c),d=decideTap(G,G.turn,L.sel,r,c);
     if(d.act==='sel')L.sel=d.sel;
+    else if(L.cpu){if(G.turn!==0)return;const out=d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='bite'?applyBite(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c);L.sel=null;L.byo=BYO;
+      if(G.winner!=null){cpuOver();return}
+      const n=nextTurn(G);G.turn=n;L.notice=out.res+(n===0?' てるてるの力で、もう1手続けて指せます(移動だけ)。':'');L.noticeAlert=!!out.alert;if(n===1)setTimeout(cpuTurn,0)}
     else{const out=d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='bite'?applyBite(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c);if(G.winner==null){const save=G.skip,nc=G.noCap;const n=nextTurn(G);G.skip=save;G.noCap=nc;out.same=n===G.turn}localEnd(out)}
   }
   else if(a==='pass'){const G=L.G;const n=nextTurn(G);const same=n===G.turn;G.turn=n;L.notice=same?'てるてるの力で、もう1手続けて指せます(移動だけ。駒は取れません)。':L.out.note;L.noticeAlert=!!L.out.alert;if(same){L.phase='play'}else{L.cover={p:G.turn,next:'play'};L.phase='cover'}}
-  else if(a==='resign'){if(L.resignArm){L.G.winner=1-L.G.turn;L.G.reason=`${NAME[L.G.turn]}が投了しました`;L.phase='over'}else L.resignArm=true}
-  else if(a==='localAgain')localNew();
+  else if(a==='resign'){if(L.resignArm){if(L.cpu){L.G.winner=1;L.G.reason='あなたが投了しました';L.phase='over'}else{L.G.winner=1-L.G.turn;L.G.reason=`${NAME[L.G.turn]}が投了しました`;L.phase='over'}}else L.resignArm=true}
+  else if(a==='localAgain')localNew(L.cpu?{level:L.cpu.level}:null);
 }
 
 /* ===== online mode (Supabase) ===== */
@@ -818,6 +924,8 @@ function renderBattle(){
   const fr=M.st?M.st.friends.filter(f=>f.status==='accepted').length:0;
   return`${backBar('対戦')}
     <button class="mode-card m-online" data-act="online"><span class="mico">${UI.globe}</span><span class="mtxt"><b>オンライン対戦</b><small>部屋コードで、それぞれのスマホから対戦。観戦もここから</small></span><span class="marr">›</span></button>
+    <div class="mode-card m-cpu"><span class="mico">${UI.cpu}</span><span class="mtxt"><b>CPU対戦</b><small>ひとりで練習。勝つと難易度に応じてコイン(1日50枚まで)</small>
+      <span class="lvrow">${Object.entries(CPU_LV).map(([k,v])=>`<button class="lvbtn lv-${k}" data-act="cpu" data-lv="${k}"><b>${v.nm}</b><small>${coinIcon}${v.coin}</small></button>`).join('')}</span></span></div>
     <button class="mode-card m-local" data-act="local"><span class="mico">${UI.phone}</span><span class="mtxt"><b>1台で対戦</b><small>スマホを交代で渡して、2人で遊ぶ</small></span><span class="marr">›</span></button>
     ${myName()?`<button class="mode-card m-friend" data-act="go" data-to="friends"><span class="mico">${UI.friend}</span><span class="mtxt"><b>フレンドを誘う</b><small>フレンド ${fr}人。誘うとすぐ部屋ができます</small></span><span class="marr">›</span></button>`:''}
     ${rulesHTML()}`;
@@ -831,6 +939,7 @@ const UI={
   coll:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><path d="m17 13.3 1.1 2.3 2.5.4-1.8 1.8.4 2.5-2.2-1.2-2.2 1.2.4-2.5-1.8-1.8 2.5-.4z"/></svg>',
   sword:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 3.5H20.5V9.5L9 21 3 15zM6 12l6 6M3.5 20.5l3-3"/></svg>',
   globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3.6 3.2 14.4 0 18M12 3c-3.2 3.6-3.2 14.4 0 18"/></svg>',
+  cpu:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="7" width="14" height="12" rx="3"/><path d="M12 7V4M9.5 12h.01M14.5 12h.01M9.5 15.5h5M2.5 12v3M21.5 12v3"/><circle cx="12" cy="3.5" r="1"/></svg>',
   phone:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10.8 18.4h2.4M3 9l2 2-2 2M21 9l-2 2 2 2"/></svg>',
 };
 const NAV=[['home','ホーム','home'],['gacha','ガチャ','gacha'],['friends','フレンド','friend'],['missions','ミッション','mission']];
@@ -1146,6 +1255,7 @@ document.getElementById('app').addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const a=el.dataset.act;
   if(a==='home'){const wasGame=S.screen==='online'||S.screen==='local';if(S.screen==='online')leaveRoom(true);S.screen=wasGame?'battle':'home';render();refreshState();window.scrollTo(0,0);return}
   if(a==='local'){if(S.screen==='online')leaveRoom(true);localNew();S.screen='local';render();return}
+  if(a==='cpu'){if(S.screen==='online')leaveRoom(true);localNew({level:el.dataset.lv});S.screen='local';render();window.scrollTo(0,0);return}
   if(a==='online'){S.screen='online';O.err='';render();return}
   if(S.screen==='collection'&&M.deck&&['swap','pick','preset','shuffle'].includes(a))return deckAct(a,el);
   if(META.has(a)&&!(S.screen==='online'&&a==='saveName'))return metaAct(a,el);
