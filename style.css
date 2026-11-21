@@ -781,3 +781,22 @@ input,textarea,.code{-webkit-user-select:text;user-select:text;-webkit-touch-cal
 .status b{display:inline-block;margin-right:6px;font-size:11px;padding:0 7px;border-radius:999px;background:rgba(255,255,255,.14)}
 .status.mine{border-left-color:var(--gold2);opacity:.85}
 .tabs{margin-bottom:4px}
+/* 手に入れ方の表示 */
+.where{display:inline-block;font-size:11px;font-weight:800;padding:1px 8px;border-radius:999px;background:rgba(255,255,255,.1);color:var(--gold1);border:1px solid var(--goldline);white-space:nowrap}
+.where.today{background:linear-gradient(180deg,#fff3b8,#ffc552);color:#3d2400;border-color:transparent}
+.wherebox{margin:0;display:grid;justify-items:center;gap:3px}.wherebox small{font-size:12px;color:var(--mute)}
+.cwhere{font-size:10px;color:var(--gold1);line-height:1.3}
+.prow .where{margin:2px 0 2px 4px}
+/* 駒の一覧 */
+.psec{display:grid;gap:8px}
+.psec h3{margin:6px 2px 0;font-family:var(--font-m);font-size:18px;color:var(--gold1);letter-spacing:.04em}
+.psec>.muted{margin:-4px 2px 0}
+.piece-row{display:flex;gap:12px;align-items:center;text-align:left;width:100%;border:1px solid var(--goldline);border-radius:16px;padding:10px 12px;color:var(--ink);
+  background:linear-gradient(180deg,rgba(44,30,120,.78),rgba(22,14,70,.84))}
+.piece-row.r-LR{border-color:rgba(255,150,210,.6)}.piece-row.r-SSR{border-color:rgba(255,200,90,.6)}
+.pr-tile{flex:none;--cell:62px}
+.pr-body{display:grid;gap:4px;min-width:0}
+.pr-head{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.pr-head b{font-size:16px;font-family:var(--font-m)}
+.abtag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;background:rgba(120,200,255,.2);color:#bfe6ff}
+.pr-d{font-size:12px;line-height:1.6;color:#e2daf5}
+.pr-body .where{justify-self:start}

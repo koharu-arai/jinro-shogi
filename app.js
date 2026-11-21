@@ -482,7 +482,8 @@ function rulesHTML(open=false){
   </ul>
   <div class="ptable">${BASE.map(t=>`<div class="prow">${tile(t)}<div><b>${T[t].nm}</b><span class="d">${T[t].d}</span></div></div>`).join('')}
   <b class="ptitle">新キャラ(ガチャで手に入る)</b>
-  ${NEWC.map(t=>`<div class="prow">${tile(t)}<div><b>${T[t].nm}</b> <span class="rar r-${CHAR_ITEM[t].rarity}">${CHAR_ITEM[t].rarity}</span><span class="d">${T[t].d}</span></div></div>`).join('')}</div></details>`;
+  ${NEWC.map(t=>`<div class="prow">${tile(t)}<div><b>${T[t].nm}</b> <span class="rar r-${CHAR_ITEM[t].rarity}">${CHAR_ITEM[t].rarity}</span>${whereTag(t)}<span class="d">${T[t].d}</span></div></div>`).join('')}</div>
+  ${S.screen!=='local'&&!(S.screen==='online'&&O.code)&&S.screen!=='pieces'?'<button class="btn ghost small" data-act="go" data-to="pieces">駒の一覧ページで見る</button>':''}</details>`;
 }
 
 /* ===== app state ===== */
@@ -545,6 +546,7 @@ async function refreshState(){
   try{
     const st=await rpc('jinro_state');
     if(!st.name){await rpc('jinro_set_name',{p_name:myName()});return refreshState()}
+    const same=M.st&&JSON.stringify(M.st)===JSON.stringify(st);if(same&&!M.err)return;   // 変化がなければ描き直さない
     const first=!M.st;M.st=st;P.names[O.uid]=st.name;P.titles[O.uid]=st.title;if(st.avatar)P.avatars[O.uid]=st.avatar;
     if(first&&st.login_claimable&&!M.modal)M.modal={type:'login'};
     loadPeople([O.uid]);
@@ -1043,10 +1045,34 @@ function renderHome(){
         <span class="qbar"><i style="width:${done/MISSIONS.length*100}%"></i></span><small>今日 ${done}/${MISSIONS.length} 達成</small></button>
       <button class="qcard" data-act="zukan"><span class="qico">📖</span><b>図鑑・物語</b>
         <span class="qbar"><i style="width:${C3KEYS.filter(k=>unlocks(k).icon).length/C3KEYS.length*100}%"></i></span><small>${C3KEYS.filter(k=>unlocks(k).icon).length}/${C3KEYS.length}体 解放</small></button>
+      <button class="qcard" data-act="go" data-to="pieces"><span class="qico">♟️</span><b>駒の一覧</b>
+        <span class="qbar"><i style="width:100%"></i></span><small>全${BASE.length+NEWC.length}種類の動きと能力</small></button>
       <button class="qcard" data-act="go" data-to="collection"><span class="qico">${UI.coll}</span><b>コレクション</b>
         <span class="qbar"><i style="width:${allItems.length?have/allItems.length*100:0}%"></i></span><small>${have}/${allItems.length} 所持</small></button>
     </div>
     ${M.err?`<p class="err">${esc(M.err)}</p>`:''}
+    ${rulesHTML()}`;
+}
+// 駒の一覧:すべての駒の動き・能力・手に入れ方をだれでも見られる
+function pieceRow(k){
+  const it=CHAR_ITEM[k],r=rarOfChar(k),own=hasChar(k),ab=AB[k];
+  return`<button class="piece-row r-${r}" data-act="charInfo" data-c="${k}">
+    <span class="pr-tile">${tile(k,{})}</span>
+    <span class="pr-body"><span class="pr-head"><b>${esc(T[k].nm)}</b><span class="rar r-${r}">${r}</span>${it?(own?'<span class="ownd2">所持</span>':''):''}${ab?'<span class="abtag">1局1回の能力</span>':''}</span>
+      <span class="pr-d">${esc(T[k].d)}</span>${whereTag(k)}</span></button>`;
+}
+function renderPieces(){
+  const ssrBase=ITEMS.filter(i=>i.kind==='char'&&i.rarity==='SSR'&&!i.banner).map(i=>i.char);
+  const sec=(t,sub,keys)=>`<section class="psec"><h3>${t}</h3>${sub?`<p class="muted">${sub}</p>`:''}${keys.map(pieceRow).join('')}</section>`;
+  const lrOf=b=>ITEMS.filter(i=>i.kind==='char'&&i.rarity==='LR'&&i.banner===b).map(i=>i.char);
+  const sunSSR=ITEMS.filter(i=>i.kind==='char'&&i.rarity==='SSR'&&i.banner==='S').map(i=>i.char);
+  return`${backBar('駒の一覧','home')}
+    <div class="card"><p class="muted">ゲームに出てくる駒は全部で${BASE.length+NEWC.length}種類。動ける方向は駒の三角の印で、どれも1マスずつです。タップするとキャラの詳細が見られます。</p></div>
+    ${sec('最初から使える駒','王様と人狼はかならず編成に入ります。',BASE)}
+    ${sec('毎日(月〜土)のガチャで出る駒','SSR。特別コイン5枚で交換もできます。',ssrBase)}
+    ${sec('月・水・土のガチャで出る駒','LR(レジェンドレア)',lrOf('A'))}
+    ${sec('火・木・金のガチャで出る駒','LR(レジェンドレア)',lrOf('B'))}
+    ${sec('日曜限定ガチャで出る駒','日曜にしか出ない8体。LR 2体・SSR 6体',[...lrOf('S'),...sunSSR])}
     ${rulesHTML()}`;
 }
 // 対戦の入り口
@@ -1058,6 +1084,7 @@ function renderBattle(){
       <span class="lvrow">${Object.entries(CPU_LV).map(([k,v])=>`<button class="lvbtn lv-${k}" data-act="cpu" data-lv="${k}"><b>${v.nm}</b><small>${coinIcon}${v.coin}</small></button>`).join('')}</span></span></div>
     <button class="mode-card m-local" data-act="local"><span class="mico">${UI.phone}</span><span class="mtxt"><b>1台で対戦</b><small>スマホを交代で渡して、2人で遊ぶ</small></span><span class="marr">›</span></button>
     ${myName()?`<button class="mode-card m-friend" data-act="go" data-to="friends"><span class="mico">${UI.friend}</span><span class="mtxt"><b>フレンドを誘う</b><small>フレンド ${fr}人。誘うとすぐ部屋ができます</small></span><span class="marr">›</span></button>`:''}
+    <button class="btn ghost" data-act="go" data-to="pieces">♟️ 駒の一覧(全${BASE.length+NEWC.length}種類の動き・能力・手に入れ方)</button>
     ${rulesHTML()}`;
 }
 // 画面下のタブ
@@ -1073,7 +1100,7 @@ const UI={
   phone:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10.8 18.4h2.4M3 9l2 2-2 2M21 9l-2 2 2 2"/></svg>',
 };
 const NAV=[['home','ホーム','home'],['gacha','ガチャ','gacha'],['friends','フレンド','friend'],['missions','ミッション','mission']];
-const NAV_OF={home:'home',battle:'home',collection:'home',story:'home',online:'home',gacha:'gacha',friends:'friends',missions:'missions'};
+const NAV_OF={pieces:'home',home:'home',battle:'home',collection:'home',story:'home',online:'home',gacha:'gacha',friends:'friends',missions:'missions'};
 function showNav(){const s=S.screen;if(!myName()||P.editing)return false;if(s==='local')return false;if(s==='online')return !O.code;return s in NAV_OF}
 function navBar(){
   const cur=NAV_OF[S.screen],badge={missions:missionsReady(),friends:friendBadge()};
@@ -1164,6 +1191,7 @@ function charSlides(list){
       <div class="sl-art" data-act="artTap">${i.rarity==='LR'||i.rarity==='SSR'?`<span class="aura a-${i.rarity}"></span>`:''}<span class="sl-shadow"></span><span class="sl-bg" style="background-image:url('${ART[k]?.fullbody||''}')"></span><span class="sl-chara">${fullbodyImg(k,{cls:'sl',silhouetteIfLocked:false})}<span class="sl-fallback">${tile(k,{})}</span></span>${'<i class="spk"></i>'.repeat(i.rarity==='LR'?8:5)}<span class="sl-shine"></span></div>
       <h3>${esc(T[k].nm)}${pf.name?`<small>${esc(pf.name)}</small>`:''}</h3>
       ${pf.alias?`<p class="sl-alias">${esc(pf.alias)}</p>`:''}
+      <p class="wherebox">${whereTag(k)}</p>
       ${pf.intro?`<p class="sl-story">${esc(pf.intro)}</p>`:''}
       <div class="sl-piece">${tile(k,{})}<div><b>どんな駒？</b><p>${esc(T[k].d)}</p></div></div>
       <button class="btn ghost small" data-act="charInfo" data-c="${k}">くわしく見る</button>
@@ -1324,7 +1352,7 @@ function renderCollection(){
     <p class="muted">${help} ${cnt}/${list.length} 所持</p>
     <div class="igrid">${list.map(i=>{
       const o=isOwned(i),eq=equipped(i),canEq=o&&['skin','frame','wolf','back','title'].includes(tab);
-      const extra=tab==='char'?`<button class="btn ghost small" data-act="charInfo" data-c="${i.char}">詳しく</button>`:canEq?`<button class="btn ${eq?'ghost':'orange'} small" data-act="equip" data-slot="${tab}" data-id="${eq?'':i.id}">${eq?'外す':'つける'}</button>`:'';
+      const extra=tab==='char'?`<small class="cwhere">${esc(whereOf(i.char).short)}</small><button class="btn ghost small" data-act="charInfo" data-c="${i.char}">詳しく</button>`:canEq?`<button class="btn ${eq?'ghost':'orange'} small" data-act="equip" data-slot="${tab}" data-id="${eq?'':i.id}">${eq?'外す':'つける'}</button>`:'';
       return itemCard(i,{locked:!o,on:eq,extra});
     }).join('')}</div>${M.err?`<p class="err">${esc(M.err)}</p>`:''}`;
 }
@@ -1369,6 +1397,15 @@ async function inviteFriend(uid){
 /* ===== root ===== */
 // レア度(基本の6体も含む)
 const rarOfChar=k=>CHAR_ITEM[k]?.rarity||rarOf(k);
+// その駒をどこで手に入れられるか(曜日のガチャなど)
+function whereOf(k){
+  const it=CHAR_ITEM[k];if(!it)return{short:'最初から使える',long:'最初から使える基本の駒です。',days:[1,2,3,4,5,6,7]};
+  if(it.rarity==='LR'){const b=BANNERS[it.banner];const d=b.days;return{short:`${it.banner==='S'?'日曜限定':d.map(x=>WD[x%7]).join('・')}のガチャ`,long:`${it.banner==='S'?'日曜限定ガチャ':d.map(x=>WD[x%7]).join('・')+'曜日のガチャ'}でだけ出ます(LR・0.5%)。`,days:d}}
+  if(it.banner==='S')return{short:'日曜限定のガチャ',long:'日曜限定ガチャでだけ出ます(SSR)。特別コイン5枚で交換もできます。',days:[7]};
+  return{short:'月〜土のガチャ',long:'月曜〜土曜のガチャで出ます(SSR)。特別コイン5枚で交換もできます。',days:[1,2,3,4,5,6]};
+}
+const todayDow=()=>new Date(Date.now()+9*3600e3).getUTCDay()||7;
+const whereTag=k=>{const w=whereOf(k),it=CHAR_ITEM[k],today=it&&w.days.includes(todayDow());return`<span class="where${today?' today':''}">${today?'今日出る！ ':''}${esc(w.short)}</span>`};
 const hasChar=k=>BASE.includes(k)||owned().has(CHAR_ITEM[k]?.id);
 // 解放の進み具合(図鑑・詳細で使う)
 function ladderHTML(k){
@@ -1395,6 +1432,7 @@ function charModal(){
     <div class="cfull">${fullbodyImg(k,{cls:'big'})}${!u.full?`<small class="lockhint">全身イラストは使用50回で解放(あと${Math.max(0,50-u.uses)}回)</small>`:''}</div>
     <div class="row center"><span class="rar big r-${r}">${r}</span><h2>${esc(T[k].nm)}<small class="pname">${esc(pf.name)}</small></h2></div>
     <p class="alias">${esc(pf.alias)}</p>
+    <p class="wherebox">${whereTag(k)}<small>${esc(whereOf(k).long)}</small></p>
     <p class="intro">${esc(pf.intro)}</p>
     <button class="line" data-act="charLine" data-c="${k}" data-e="${u.expr?(e==='angry'?'surprise':e==='surprise'?'shy':'angry'):''}">${speaker}<span>「${esc(pf.line)}」</span></button>
     ${u.expr?'<small class="muted">表情をタップすると、セリフに合わせて表情が変わります</small>':''}
@@ -1417,7 +1455,7 @@ function zukanHTML(){
         <span class="rar r-${r}">${r}</span>
         ${u.icon?faceIcon(k,iconSvg(k),{cls:'zface'}):`<span class="face zface sil">${iconSvg(k)}</span>`}
         <b>${u.icon?esc(PROFILE[k].name):'？？？'}</b><small>${esc(T[k].nm)}</small>
-        <small class="znext">${!has?'ガチャで入手':nx?`あと${nx.left}回で${nx.label}`:'全部解放'}</small>
+        <small class="znext">${!has?whereOf(k).short:nx?`あと${nx.left}回で${nx.label}`:'全部解放'}</small>
         ${u.ach?'<span class="zach">★</span>':''}</button>`}).join('')}</div>`;
 }
 
@@ -1478,14 +1516,17 @@ function render(){
   const app=document.getElementById('app');
   const ae=document.activeElement,keep=ae&&['code','pname','fcode'].includes(ae.id)?{id:ae.id,v:ae.value}:null;
   const scr=S.screen;
-  let h=scr==='local'?renderLocal():scr==='online'?renderOnline():scr==='gacha'?renderGacha():scr==='missions'?renderMissions():scr==='collection'?renderCollection():scr==='friends'?renderFriends():scr==='battle'?renderBattle():scr==='story'?renderStory():renderHome();
+  let h=scr==='local'?renderLocal():scr==='online'?renderOnline():scr==='gacha'?renderGacha():scr==='missions'?renderMissions():scr==='collection'?renderCollection():scr==='friends'?renderFriends():scr==='battle'?renderBattle():scr==='pieces'?renderPieces():scr==='story'?renderStory():renderHome();
   const nav=showNav();if(nav)h+=navBar();app.classList.toggle('hasnav',nav);
   if(M.modal?.type==='login'&&scr!=='online'&&scr!=='local')h+=loginModal();
   if(M.modal?.type==='avatar')h+=avatarModal();
   if(M.modal?.type==='char')h+=charModal();
   if(M.anim&&M.anim.results!==undefined&&scr==='gacha')h+=gachaOverlay();
   if(M.toast)h+=`<div class="toast" role="status">${esc(M.toast)}</div>`;
-  app.innerHTML=h;
+  // 同じ画面の描き直しでは、開いている「ルールと駒の動き」などや横スクロールの位置をそのまま残す
+  const same=render.last===scr,openD=same?[...app.querySelectorAll('details')].map(d=>d.open):[],hx=same?[...app.querySelectorAll('.slides,.tabs')].map(e=>e.scrollLeft):[];
+  app.innerHTML=h;render.last=scr;
+  if(same){app.querySelectorAll('details').forEach((d,i)=>{if(openD[i])d.open=true});app.querySelectorAll('.slides,.tabs').forEach((e,i)=>{if(hx[i])e.scrollLeft=hx[i]})}
   soundCheck();setupSlides();
   if(keep){const i=document.getElementById(keep.id);if(i){i.value=keep.v;i.focus()}}
   updateClocks();
