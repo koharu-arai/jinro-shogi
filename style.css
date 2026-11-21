@@ -818,4 +818,5 @@ input,textarea,.code{-webkit-user-select:text;user-select:text;-webkit-touch-cal
 .slide .sl-shine{display:none}
 .sl-art:has(.fullbody.hasimg) .sl-chara{animation:none}
 .sl-art .sl-chara .fullbody{animation:none}
-.slide.rare-LR,.slide.rare-SSR{animation:none}
+.sl-art .sl-chara .fullbody.hasimg{animation:none}
+.sl-art .spk{display:none}
