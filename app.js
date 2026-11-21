@@ -521,7 +521,7 @@ const P={names:{},titles:{},avatars:{},stats:{},editing:false,recorded:new Set()
 const nameOf=(uid,fb)=>P.names[uid]||fb;
 function statText(uid){const st=P.stats[uid];if(!st||!st.n)return'戦績なし';return`勝率 ${Math.round(st.w/st.n*100)}%・${st.n}戦${st.w}勝`}
 const AV_BG=['#ff6f93','#ff9f1c','#3f86f0','#22b573','#a855f7','#1d2232','#f5b82e','#8b93a7'];
-const avOf=uid=>P.avatars[uid]||{c:'wolf',bg:0};
+const avOf=uid=>P.avatars[uid]||(uid===O.uid?localAvatar():null)||{c:'wolf',bg:0};
 // アイコン。av.s = 'img'(顔イラスト) / 'gold'(金フレーム) / 'lux'(LRの豪華版)。未設定は駒のSVG
 function avatar(av,cls=''){av=av||{c:'wolf',bg:0};const c=T[av.c]?av.c:'wolf';const svg=iconSvg(c,c==='wolf'?myLookFor(av):null);
   const st=['img','gold','lux'].includes(av.s)&&ART[c]?av.s:null;

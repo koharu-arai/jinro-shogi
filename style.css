@@ -808,6 +808,8 @@ input,textarea,.code{-webkit-user-select:text;user-select:text;-webkit-touch-cal
 /* フラット版: スライド内とロック中の画像は、中央寄せ・拡大の transform をアニメーションで打ち消さないよう画像側のアニメーションを止める(スライドの動きは枠側の kenburns が担当) */
 .sl-art .fullbody.flatanim img{animation:none}
 .fullbody.flatanim.locked img{animation:none}
+/* アバター画像はフェードでじわっと切り替わると読み込み時の挙動に見えるため、即時表示にする */
+.av.img img{transition:none}
 /* スライド:モザイク(ぼかし背景)はなし。絵を枠いっぱいに表示し、高さは最初から固定して開いたときのガタつきを防ぐ(2026-11-21 本人希望) */
 .slides .sl-art{height:360px}
 .sl-art:has(.fullbody.hasimg) .sl-bg{display:none}
