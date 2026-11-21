@@ -763,3 +763,6 @@ input,textarea,.code{-webkit-user-select:text;user-select:text;-webkit-touch-cal
 .cfull .fullbody:has(img){aspect-ratio:1/2;max-width:230px}
 .cfull .fullbody img{animation:none}
 .cfull .fullbody.hasimg:not(.locked){animation:kenburns 9s ease-in-out infinite alternate}
+/* 未解放の全身イラスト:背景つきの絵は黒塗りだと真っ黒な四角になるので、ぼかして暗くする */
+.fullbody.locked img{filter:blur(14px) brightness(.45) saturate(.6);transform:scale(1.15)}
+.fullbody.locked{background:#120a34}
