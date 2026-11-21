@@ -418,7 +418,7 @@ input.namein,input.codein,input{background:rgba(10,6,40,.45);border:1px solid va
 .stage.solo{padding:34px 20px 26px}
 .stage-pcs{position:absolute;inset:0;pointer-events:none}
 .spc{position:absolute;--cell:46px;opacity:.9;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35));animation:hover 5s ease-in-out infinite}
-.spc0{left:14px;top:62px;transform:rotate(-14deg)}.spc1{right:16px;top:70px;transform:rotate(12deg);animation-delay:-1.6s}.spc2{left:30px;bottom:86px;transform:rotate(8deg);animation-delay:-3.1s;--cell:38px;opacity:.6}
+.spc{--cell:40px}.spc0{left:22px;top:18px;transform:rotate(-14deg)}.spc1{right:22px;top:18px;transform:rotate(12deg);animation-delay:-1.6s}.spc2{display:none}
 @keyframes hover{0%,100%{translate:0 0}50%{translate:0 -7px}}
 @media (max-width:370px){.spc{display:none}}
 
@@ -502,3 +502,11 @@ input.namein,input.codein,input{background:rgba(10,6,40,.45);border:1px solid va
 @keyframes pcshine{0%,55%{background-position:120% 0}100%{background-position:-120% 0}}
 .sheet{background:linear-gradient(180deg,#3b2c86,#21185a);border-top:1px solid var(--goldline)}
 .hand{background:rgba(30,22,74,.6);border:1px solid rgba(255,214,128,.2)}
+
+.board.compact{grid-template-rows:repeat(2,var(--cell))}
+.cell.zone{opacity:1;background:rgba(24,16,64,.72)}
+.cell.zone .lbl{color:#cfc4ee}
+.top .btn{white-space:nowrap;flex:none}.top .ttlh{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.gbanner{background:radial-gradient(90% 80% at 100% 0%,rgba(255,200,120,.38),transparent 60%),linear-gradient(135deg,#5b2fa0,#2b1b6e)}
+.gbanner.b-B{background:radial-gradient(90% 80% at 100% 0%,rgba(255,90,120,.45),transparent 60%),linear-gradient(135deg,#7a1f4f,#2b1240)}
+.gbanner.b-S{background:radial-gradient(90% 80% at 100% 0%,rgba(120,255,220,.35),transparent 60%),linear-gradient(135deg,#17607a,#1d1c5e)}

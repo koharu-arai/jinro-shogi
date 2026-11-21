@@ -254,9 +254,9 @@ function clocksHTML(me,op,meLabel,opLabel,G){
   <div class="clk op" data-ck="${op}"><span class="who">${opLabel}</span><b data-clock="${op}">2:00</b><span class="meter"><i data-meter="${op}"></i></span></div></div>`;
 }
 // 配置と編成。pool = 入れ替えに使える駒
-function setupHTML(arr,sel,pool,look,msg){
-  let b='<div class="boardwrap"><div class="board">';
-  for(let dr=0;dr<5;dr++)for(let dc=0;dc<3;dc++){
+function setupHTML(arr,sel,pool,look,msg,compact){
+  let b=`<div class="boardwrap"><div class="board${compact?' compact':''}">`;
+  for(let dr=compact?3:0;dr<5;dr++)for(let dc=0;dc<3;dc++){
     if(dr<3){b+=`<div class="cell zone">${dr===1&&dc===1?'<span class="lbl">相手の陣地</span>':''}</div>`;continue}
     const i=(dr===3?0:3)+dc;
     b+=`<button class="cell${sel===i?' sel':''}" data-act="swap" data-i="${i}" aria-label="${T[arr[i]].nm}">${tile(arr[i],{look})}</button>`;
@@ -1018,7 +1018,7 @@ function renderCollection(){
     return`${backBar('コレクション','home')}
       <div class="tabs" role="tablist">${TABS.map(([k,l])=>`<button class="tab${k===tab?' on':''}" role="tab" aria-selected="${k===tab}" data-act="tab" data-tab="${k}">${l}</button>`).join('')}</div>
       <div class="card deckhead"><b>デフォルト編成</b><p class="muted">対戦の配置画面は、最初からこの並びになります(対戦ごとに変えることもできます)。下の2段があなたの陣地で、上の段が前列です。変更は自動で保存されます。</p></div>
-      ${setupHTML(D.arr,D.sel?.i,pool,look,D.msg)}${setupControls()}${rankCard()}
+      ${setupHTML(D.arr,D.sel?.i,pool,look,D.msg,true)}${setupControls()}${rankCard()}
       ${NEWC.some(c=>!ownedChars().includes(c))?'<p class="muted">新キャラはガチャで手に入れると編成に入れられます。</p>':''}`;
   }
   const list=(tab==='stamp'?[...DEFAULT_STAMPS,...ITEMS.filter(i=>i.kind==='stamp')]:tab==='title'?[...ACH_ITEMS,...ITEMS.filter(i=>i.kind==='title')]:ITEMS.filter(i=>i.kind===tab)).sort((a,b)=>RARITY_ORDER.indexOf(a.rarity)-RARITY_ORDER.indexOf(b.rarity));
