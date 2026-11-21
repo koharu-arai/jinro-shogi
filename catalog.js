@@ -29,6 +29,23 @@ export const CHARS = {
     icon: `<path d="M6 40 L10 20 Q24 12 38 20 L42 40 L33 34 L24 40 L15 34 Z" fill="#4c0519" stroke="${D}" stroke-width="2.2" stroke-linejoin="round"/><circle cx="24" cy="19" r="10" fill="#f5e6ef" stroke="${D}" stroke-width="2.4"/><path d="M14 13 Q24 3 34 13 L30 12 L24 15 L18 12 Z" fill="${D}"/><path d="M19 18 L22 19 M29 18 L26 19" stroke="#e11d48" stroke-width="2.4" stroke-linecap="round"/><path d="M20 23 Q24 26 28 23" fill="none" stroke="${D}" stroke-width="1.8" stroke-linecap="round"/><path d="M21.5 24 L22.5 27 L23.5 24.5 M24.5 24.5 L25.5 27 L26.5 24" fill="#fff" stroke="${D}" stroke-width="1" stroke-linejoin="round"/>` },
   cursed:   { nm: '呪われた者', band: '#4c1d95', m: [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]], d: '全方向に1マス。ただし隠れた人狼に返り討ちにされると、消えずに相手の駒に寝返る。',
     icon: `<circle cx="24" cy="24" r="17" fill="#c4b5fd" stroke="${D}" stroke-width="2.4"/><path d="M24 9 L27 19 L37 19 L29 25 L32 35 L24 29 L16 35 L19 25 L11 19 L21 19 Z" fill="none" stroke="#4c1d95" stroke-width="1.6" stroke-linejoin="round" opacity=".55"/><circle cx="18" cy="22" r="3.4" fill="#fff" stroke="${D}" stroke-width="1.8"/><circle cx="30" cy="22" r="3.4" fill="#fff" stroke="${D}" stroke-width="1.8"/><circle cx="18" cy="22" r="1.2" fill="${D}"/><circle cx="30" cy="22" r="1.2" fill="${D}"/><path d="M18 31 Q24 28 30 31" fill="none" stroke="${D}" stroke-width="2" stroke-linecap="round"/><path d="M6 38 Q12 34 16 38 M32 38 Q36 34 42 38" fill="none" stroke="${D}" stroke-width="2.2" stroke-linecap="round"/>` },
+  // ---- 日曜限定ガチャの8体(アイコンはマル制作) ----
+  madman:    { nm: '狂人', band: '#b45309', m: [[-1, 0],[0, -1],[0, 1]], d: '前・左右に1マス。取られると、取った側には「人狼を取った」と表示される(持ち駒になるときは村人として渡る)。',
+    icon: `<g fill="none" stroke="#232838" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21 L6 9 L13 13 L15 4 L20 11 L24 3 L27 11 L34 6 L34 14 L38 19 Q20 10 9 21Z" fill="#b45309"/><circle cx="20" cy="24" r="10.5" fill="#ffe3c2"/><circle cx="15.5" cy="23" r="3.1" fill="#ffffff"/><circle cx="15.5" cy="23" r="1.2" fill="#232838" stroke="none"/><circle cx="25.5" cy="23" r="1.9" fill="#232838" stroke="none"/><path d="M12 30 L16 28.6 L20 30 L24 28.6 L28 30"/><path d="M35 15 L34 8 L38.5 11 L42.5 8 L43 15 Q45.5 19 43.5 24 L40 30 L36 24 Q34 19 35 15Z" fill="#9aa3b2"/><ellipse cx="39" cy="25" rx="2.8" ry="2.1" fill="#c7cedb"/><circle cx="37" cy="19.5" r="1.1" fill="#232838" stroke="none"/><circle cx="41.5" cy="19.5" r="1.1" fill="#232838" stroke="none"/></g>` },
+  wolfboy:   { nm: '狼少年', band: '#65a30d', m: [[-1, -1],[-1, 0],[-1, 1]], d: '前3方向に1マス。1局に1回、手番を使って「王様のふり」ができる。相手からは王様に見えるようになる。',
+    icon: `<g fill="none" stroke="#232838" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 11 L17 4 L22 9 L27 3 L30 10 L32 13 L14.5 14.5Z" fill="#f5c542"/><path d="M11 21 Q10 9 24 9 Q38 9 37 21 L33 16 L30 20.5 L26 15.5 L21 19.5 L17 15 L14 19.5Z" fill="#6b4f2a"/><circle cx="24" cy="25" r="10" fill="#ffe3c2"/><path d="M15.5 23.5 Q18 21.5 20.5 23.5"/><circle cx="29.5" cy="23.5" r="1.8" fill="#232838" stroke="none"/><path d="M19 30.5 Q24 33 29 30.5"/><path d="M21.5 32.5 Q24 37.5 26.5 32.5 L26.5 31 L21.5 31Z" fill="#f28bb4"/><path d="M13.5 36 Q24 31.5 34.5 36Z" fill="#65a30d"/></g>` },
+  detective: { nm: '探偵', band: '#1e3a8a', m: [[-1, 0],[1, 0],[0, -1],[0, 1]], d: '上下左右に1マス。1局に1回、手番を使って隣の相手の駒1枚の正体を自分だけ見られる。',
+    icon: `<g fill="none" stroke="#232838" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 16 Q24 5 38 16 L38 19 L10 19Z" fill="#1e3a8a"/><path d="M5 19 L43 19 L38.5 22.5 L9.5 22.5Z" fill="#1e3a8a"/><path d="M13.5 22.5 L34.5 22.5 L34.5 27 Q34.5 35 24 35 Q13.5 35 13.5 27Z" fill="#ffe3c2"/><path d="M16.5 26.5 L21 26.5"/><circle cx="18.8" cy="28.3" r="1.3" fill="#232838" stroke="none"/><path d="M27 26.5 L31.5 26.5"/><circle cx="29.2" cy="28.3" r="1.3" fill="#232838" stroke="none"/><path d="M21 32.5 L27 32.5"/><circle cx="36" cy="28" r="6.2" fill="#bcd8ff" fill-opacity="0.55"/><path d="M40.3 32.8 L43.5 36"/></g>` },
+  gravekeeper: { nm: '墓守', band: '#475569', m: [[-1, 0],[1, 0],[1, -1],[1, 1]], d: '前・後ろ・斜め後ろに1マス。盤上にいる間、味方を取った相手の駒は正体がこちらに知られる。',
+    icon: `<g fill="none" stroke="#232838" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M24 3.5 Q38 5.5 38 19 L38 29 Q38 36 31.5 36 L16.5 36 Q10 36 10 29 L10 19 Q10 5.5 24 3.5Z" fill="#475569"/><circle cx="24" cy="21.5" r="8.6" fill="#f2e8d8"/><path d="M18 20.5 L22.5 20.5"/><circle cx="20.2" cy="22.3" r="1.2" fill="#232838" stroke="none"/><path d="M25.5 20.5 L30 20.5"/><circle cx="27.8" cy="22.3" r="1.2" fill="#232838" stroke="none"/><path d="M21.5 27.5 L26.5 27.5"/><path d="M39.5 23.5 Q41.5 20.5 43.5 23.5" fill="#475569"/><rect x="37.5" y="23.5" width="8" height="9.5" rx="2" fill="#ffd34d"/><path d="M41.5 25.5 L41.5 31"/></g>` },
+  bodyguard: { nm: 'ボディーガード', band: '#0f766e', m: [[0, -1],[0, 1],[1, 0]], d: '左右・後ろに1マス。隣の味方が取られるとき、1回だけ身代わりになって消える(味方は無事)。',
+    icon: `<g fill="none" stroke="#232838" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="22" r="10.5" fill="#ffe3c2"/><path d="M9.5 20 Q9.5 9.5 20 9.5 Q30.5 9.5 30.5 20 L28.5 14.5 L12 15.5Z" fill="#2f2a26"/><path d="M10 19.5 L30 19.5 L28.6 25.5 Q24.8 27 22.3 25 L20 23 L17.7 25 Q15.2 27 11.4 25.5Z" fill="#111827"/><path d="M15.5 30.5 L23 30.5"/><path d="M12 36 L30 36 L30 33.5 Q21 31 12 33.5Z" fill="#1f2937"/><path d="M31.5 22.5 L41.5 20 L41.5 27.5 Q41.5 33.5 36.5 36 Q31.5 33.5 31.5 27.5Z" fill="#0f766e"/><path d="M34 25.5 L39 24 L39 28 Q39 31.5 36.5 33 Q34 31.5 34 28Z" fill="#99e5dd" stroke="none"/></g>` },
+  ninja:     { nm: '忍者', band: '#111827', m: [[-1, -1],[-1, 1],[1, 0]], d: '斜め前・真後ろに1マス。1局に1回、手番を使って上下左右に2マス先の空きマスへ跳べる(間の駒は飛び越える)。',
+    icon: `<g fill="none" stroke="#232838" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M34.5 11 L43 7.5 L41.5 14.5 L35 15.5Z" fill="#1f2937"/><circle cx="24" cy="21" r="11.5" fill="#1f2937"/><path d="M13.5 17.5 L34.5 17.5 L34.5 23.5 Q24 26.5 13.5 23.5Z" fill="#ffe3c2"/><path d="M16.5 19.8 L21 19"/><circle cx="19" cy="21" r="1.4" fill="#232838" stroke="none"/><path d="M27 19 L31.5 19.8"/><circle cx="29" cy="21" r="1.4" fill="#232838" stroke="none"/><path d="M33 29.5 Q40 31.5 43.5 28 L42.5 34.5 Q37 35.5 32 32.5Z" fill="#b91c1c"/><rect x="5.5" y="26.5" width="8" height="8" fill="#9aa3b2"/><rect x="5.5" y="26.5" width="8" height="8" fill="#9aa3b2" transform="rotate(45 9.5 30.5)"/><circle cx="9.5" cy="30.5" r="1.4" fill="#ffffff"/></g>` },
+  witch:     { nm: '魔女', band: '#7e22ce', m: [[-1, -1],[-1, 1],[1, -1],[1, 1]], d: '斜め4方向に1マス。1局に1回、手番を使って取られた味方1枚(最後に取られた駒)を自陣の手前2段の空きマスに復活させる。',
+    icon: `<g fill="none" stroke="#232838" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 20 L13.5 33 L17.5 33 L17.5 21Z" fill="#a855f7"/><path d="M33 20 L34.5 33 L30.5 33 L30.5 21Z" fill="#a855f7"/><circle cx="24" cy="26" r="8.6" fill="#ffe3c2"/><path d="M24.5 2 Q31 8 29.5 13.5 L41 19.5 L7 19.5 L19 13.5 Q20 5.5 24.5 2Z" fill="#7e22ce"/><path d="M12.5 16.8 L35.5 16.8 L37.5 19.5 L10.5 19.5Z" fill="#f5c542"/><path d="M27 7.5 L28 10 L30.5 10.8 L28.4 12.3 L29 14.8 L27 13.4 L25 14.8 L25.6 12.3 L23.5 10.8 L26 10Z" fill="#ffd34d"/><circle cx="18.8" cy="25.5" r="1.6" fill="#232838" stroke="none"/><circle cx="29.2" cy="25.5" r="1.6" fill="#232838" stroke="none"/><path d="M20.5 30.5 Q24 32.5 27.5 30.5"/><circle cx="41" cy="30.5" r="4.2" fill="#4ade80"/><path d="M39.3 26.8 L39.3 23.8 L42.7 23.8 L42.7 26.8Z" fill="#c7cedb"/><path d="M35.5 21 L36.2 23 L38.2 23.7 L36.2 24.4 L35.5 26.4 L34.8 24.4 L32.8 23.7 L34.8 23Z" fill="#ffd34d"/></g>` },
+  cupid:     { nm: 'キューピッド', band: '#db2777', m: [[-1, 0],[0, -1],[0, 1],[1, -1],[1, 1]], d: '前・左右・斜め後ろに1マス。1局に1回、手番を使って隣の相手の駒1枚を2手番のあいだ動けなくする(王様には効かない)。',
+    icon: `<g fill="none" stroke="#232838" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 17 Q3 11 5 20.5 Q2 25.5 8 27.5 Q13.5 28.5 14.5 23Z" fill="#ffffff"/><path d="M34.5 17 Q45 11 43 20.5 Q46 25.5 40 27.5 Q34.5 28.5 33.5 23Z" fill="#ffffff"/><circle cx="24" cy="23.5" r="9.5" fill="#ffe3c2"/><circle cx="15.5" cy="13" r="4.6" fill="#ffd34d"/><circle cx="24" cy="9.8" r="5.2" fill="#ffd34d"/><circle cx="32.5" cy="13" r="4.6" fill="#ffd34d"/><circle cx="16" cy="19" r="3.4" fill="#ffd34d"/><circle cx="32" cy="19" r="3.4" fill="#ffd34d"/><path d="M17.5 23 Q19.5 21 21.5 23"/><path d="M26.5 23 Q28.5 21 30.5 23"/><circle cx="17" cy="27.5" r="1.9" fill="#f9a8d4" stroke="none"/><circle cx="31" cy="27.5" r="1.9" fill="#f9a8d4" stroke="none"/><path d="M21.5 28.5 Q24 30 26.5 28.5"/><path d="M24 35.5 Q16.5 30 18.8 26.2 Q21.2 23.2 24 26.8 Q26.8 23.2 29.2 26.2 Q31.5 30 24 35.5Z" fill="#db2777"/><path d="M15.5 36.5 L34 24.5" stroke="#f5c542"/><path d="M34 24.5 L29.8 25.3 L32.6 28.6Z" fill="#f5c542"/><path d="M8 33.5 L8.7 35.7 L10.9 36.4 L8.7 37.1 L8 39.3 L7.3 37.1 L5.1 36.4 L7.3 35.7Z" fill="#ffd34d"/></g>` },
 };
 // キャラ素材 chara3(正式版)。CHARS[k] に全身・顔アイコン・表情・リアクション道具の参照を足す。
 // 盤上の駒は従来どおり icon(SVG)のまま。顔アイコン画像は iconImg(icon は駒SVGで使っているため)。
@@ -36,6 +53,7 @@ export const CHARS = {
 import { ART } from './chara3.js';
 for (const k of Object.keys(CHARS)) {
   const a = ART[k];
+  if (!a) continue;
   Object.assign(CHARS[k], { fullbody: a.fullbody, iconImg: a.icon, expr: a.expr, prop: a.prop });
   if (a.fullbodyLux) Object.assign(CHARS[k], { fullbodyLux: a.fullbodyLux, iconLux: a.iconLux });
 }
@@ -44,7 +62,7 @@ for (const k of Object.keys(CHARS)) {
 export const BANNERS = {
   A: { name: '通常ガチャ',   days: [1, 3, 6], lr: ['fox', 'thief'],       desc: 'レジェンドレアの妖狐・怪盗が出る' },
   B: { name: '新キャラガチャ', days: [2, 4, 5], lr: ['vampire', 'cursed'], desc: 'レジェンドレアの吸血鬼・呪われた者が出る' },
-  S: { name: 'えらべるピックアップガチャ', days: [7], lr: [],            desc: '好きなキャラを1体選んで引ける。選んだキャラのレア度が出たら必ずそのキャラ(LRなら0.5%、SSRなら2.5%)' },
+  S: { name: '日曜限定ガチャ', days: [7], lr: ['witch', 'cupid'], desc: '日曜だけ！ 探偵・忍者・魔女など、ここでしか出ない8体が登場' },
 };
 export const bannerOfDay = dow => Object.keys(BANNERS).find(k => BANNERS[k].days.includes(dow)) || 'A';
 
@@ -59,6 +77,14 @@ export const ITEMS = [
   { id: 'c_thief',    kind: 'char',  rarity: 'LR',  name: '怪盗',     char: 'thief', banner: 'A' },
   { id: 'c_vampire',  kind: 'char',  rarity: 'LR',  name: '吸血鬼',   char: 'vampire', banner: 'B' },
   { id: 'c_cursed',   kind: 'char',  rarity: 'LR',  name: '呪われた者', char: 'cursed', banner: 'B' },
+  { id: 'c_witch',    kind: 'char',  rarity: 'LR',  name: '魔女',     char: 'witch',  banner: 'S' },
+  { id: 'c_cupid',    kind: 'char',  rarity: 'LR',  name: 'キューピッド', char: 'cupid', banner: 'S' },
+  { id: 'c_detective', kind: 'char', rarity: 'SSR', name: '探偵',     char: 'detective', banner: 'S' },
+  { id: 'c_bodyguard', kind: 'char', rarity: 'SSR', name: 'ボディーガード', char: 'bodyguard', banner: 'S' },
+  { id: 'c_ninja',    kind: 'char',  rarity: 'SSR', name: '忍者',     char: 'ninja',  banner: 'S' },
+  { id: 'c_madman',   kind: 'char',  rarity: 'SSR', name: '狂人',     char: 'madman', banner: 'S' },
+  { id: 'c_gravekeeper', kind: 'char', rarity: 'SSR', name: '墓守',   char: 'gravekeeper', banner: 'S' },
+  { id: 'c_wolfboy',  kind: 'char',  rarity: 'SSR', name: '狼少年',   char: 'wolfboy', banner: 'S' },
   // SR
   { id: 'k_pop',      kind: 'skin',  rarity: 'SR',  name: 'ポップ' },
   { id: 'k_neon',     kind: 'skin',  rarity: 'SR',  name: 'ネオン' },
@@ -127,7 +153,7 @@ export const ACHIEVEMENTS = [
   { id: 'a_win50',   name: '50勝する',             stat: 'wins',    goal: 50,  coins: 1000, tokens: 2, item: 't_win50' },
   { id: 'a_win100',  name: '100勝する',            stat: 'wins',    goal: 100, coins: 2000, tokens: 5, item: 't_win100' },
   { id: 'a_ssrall',  name: 'SSRキャラを全部集める', stat: 'ssr',     goal: 4,   coins: 1000, item: 't_ssrall' },
-  { id: 'a_charall', name: '新キャラを全部集める',   stat: 'chars',   goal: 8,   coins: 3000, tokens: 5, item: 't_charall' },
+  { id: 'a_charall', name: '新キャラを全部集める',   stat: 'chars',   goal: 16,   coins: 3000, tokens: 5, item: 't_charall' },
 ];
 
 // 最初から持っているスタンプ

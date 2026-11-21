@@ -182,3 +182,26 @@ export function fullbodyImg(k, { cls = '', silhouetteIfLocked = true } = {}) {
   const locked = !u.full && silhouetteIfLocked;
   return `<span class="fullbody ${locked ? 'locked' : ''} ${u.lux ? 'lux' : ''} ${cls}">${lazyImg(src, PROFILE[k]?.name || k)}${locked ? '<span class="lockmark">？？？</span>' : ''}</span>`;
 }
+
+/* ===== 日曜限定ガチャの8体(紹介文はマルのたたき台を調整。全身イラストは本人経由で届き次第 chara3/fullbody/ に置く) ===== */
+export const EXTRA_KEYS = ['madman','wolfboy','detective','gravekeeper','bodyguard','witch','ninja','cupid'];
+for (const k of EXTRA_KEYS) {
+  if (!KEYS.includes(k)) KEYS.push(k);
+  ART[k] = { fullbody: `${DIR}/fullbody/char3-${k}.webp`, icon: `${DIR}/icons/icon3-${k}.webp`, expr: {}, prop: null, extra: true };
+}
+Object.assign(PROFILE, {
+  madman:      { name: 'ジェスター', alias: '仮面で笑う道化', role: '狂人', profile: '人狼の仮面を手に、ニヤリと笑う村人。人狼の味方なのか、ただ騒ぎを楽しんでいるだけなのか、本人にもわからない。', ties: '人狼ガロに妙に肩入れしている。', line: 'ほら、狼はここだよ。……たぶんね', intro: '人狼の仮面を手にニヤリと笑う村人。人狼のふりをして、盤上をかき乱す。' },
+  wolfboy:     { name: 'ピコ', alias: '王冠をかぶった嘘つき', role: '狼少年', profile: 'おもちゃの王冠と舌出しがトレードマークの羊飼いの少年。嘘をつくのが得意で、村ではもう誰も信じてくれない。', ties: 'ミーアの羊をよく逃がしている。', line: 'ぼくが王様だよ！ ……ほんとだってば！', intro: 'おもちゃの王冠と舌出しがトレードマークの、嘘つき羊飼い。王様のふりで相手をだます。' },
+  detective:   { name: 'シャール', alias: '証拠を追う名探偵', role: '探偵', profile: '虫めがねと鹿撃ち帽の探偵。勘より証拠を信じ、静かに一枚ずつ真実をめくっていく。', ties: '占い師ノワールとは、やり方の違いでよく張り合う。', line: '推理に必要なのは、予言ではなく証拠です', intro: '虫めがねと鹿撃ち帽の冷静な推理役。隣の駒の正体を、証拠でこっそり見抜く。' },
+  gravekeeper: { name: 'モルグ', alias: 'ランタンを持つ墓地の番人', role: '墓守', profile: 'ランタンとスコップを携えた、物静かな墓地の番人。倒れた者が誰に倒されたのか、決して忘れない。', ties: '霊媒師ユエと、ときどき墓地で言葉を交わす。', line: '倒れた者は語らない。だから、私が覚えておく', intro: 'ランタンとスコップを携えた墓地の番人。味方を倒した駒の正体を暴く。' },
+  bodyguard:   { name: 'ガイ', alias: '大盾の護衛', role: 'ボディーガード', profile: 'サングラスと大盾の護衛。守ると決めた相手は、何があっても渡さない。', ties: '若き王レオンの影の護衛と噂されている。', line: '下がってろ。ここから先は、俺の仕事だ', intro: 'サングラスと大盾の護衛。隣の味方が狙われたとき、一度だけ身代わりになる。' },
+  witch:       { name: 'リリス', alias: '宝石をまとう夜の魔女', role: '魔女', profile: '金の装飾と宝石で身を飾る、いたずら好きの魔女。倒れた者を呼び戻す禁じられた魔法を、気まぐれに使う。', ties: '妖狐タマモとは、古くからの飲み友達。', line: 'あら、もう終わり？ じゃあ、もう一度はじめましょう', intro: '宝石をまとういたずら好きの魔女。取られた味方を一度だけ盤上に呼び戻し、戦況をひっくり返す。' },
+  ninja:       { name: 'カゲマル', alias: '月夜を跳ぶ影', role: '忍者', profile: '月夜の屋根を跳ぶ黒装束の忍び。手裏剣の名手で、気づいたときにはもう背後にいる。', ties: '怪盗レイヴンとは、屋根の上で何度もすれ違っている。', line: '影は、跳ぶ。音もなく', intro: '月夜の屋根を跳ぶ黒装束、手裏剣の名手。一度だけ2マス先へ跳び、奇襲をかける。' },
+  cupid:       { name: 'アモル', alias: '金の弓の天使', role: 'キューピッド', profile: '金の弓とハートの矢を持つ、宝石を散りばめた天使。射抜かれた者は恋に落ち、しばらく何も手につかない。', ties: '呪われた者ルカの鎖を、恋の力で解けないか試している。', line: '恋に落ちたら、戦いどころじゃないでしょ？', intro: '金の弓とハートの矢を持つ、豪華な天使。恋の矢で相手の駒を2手番のあいだ動けなくする。' },
+});
+Object.assign(CHARA_ACH, {
+  madman: { stat: 'wins', goal: 30, label: '狂人を編成して30勝' }, wolfboy: { stat: 'wins', goal: 30, label: '狼少年を編成して30勝' },
+  detective: { stat: 'wins', goal: 30, label: '探偵を編成して30勝' }, gravekeeper: { stat: 'wins', goal: 30, label: '墓守を編成して30勝' },
+  bodyguard: { stat: 'wins', goal: 30, label: 'ボディーガードを編成して30勝' }, witch: { stat: 'wins', goal: 30, label: '魔女を編成して30勝' },
+  ninja: { stat: 'wins', goal: 30, label: '忍者を編成して30勝' }, cupid: { stat: 'wins', goal: 30, label: 'キューピッドを編成して30勝' },
+});

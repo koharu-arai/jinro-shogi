@@ -251,7 +251,6 @@ declare cost int; c int; tk int; i int; rc int; r float; rar text; it text; got_
 begin
   perform jinro_auth(p_uid, p_secret);
   if p_count = 1 then cost := 100; elsif p_count = 10 then cost := 900; else raise exception 'count'; end if;
-  if ban = 'S' and (p_pick is null or not exists (select 1 from jinro_items where id = p_pick and kind = 'char')) then raise exception 'pick'; end if;
   select coins into c from jinro_wallets where uid = p_uid for update;
   if c < cost then raise exception 'coins'; end if;
   update jinro_wallets set coins = coins - cost where uid = p_uid;
@@ -262,10 +261,10 @@ begin
       r := random() * 100; rar := case when r < 0.5 then 'LR' when r < 3 then 'SSR' when r < 12 then 'SR' when r < 40 then 'R' else 'N' end;
     end if;
     if rar in ('SR','SSR','LR') then got_high := true; end if;
-    if ban = 'S' and rar = (select rarity from jinro_items where id = p_pick) then   -- 日曜:選んだキャラと同じレア度が出たら、必ずそのキャラ
-      it := p_pick;
-    elsif rar = 'LR' then                                            -- LRは曜日のキャラ(日曜は4体から)
-      select id into it from jinro_items where rarity = 'LR' and gacha and (ban = 'S' or banner = ban) order by random() limit 1;
+    if rar = 'LR' then                                               -- LRは曜日のキャラ
+      select id into it from jinro_items where rarity = 'LR' and gacha and banner = ban order by random() limit 1;
+    elsif rar = 'SSR' then                                           -- SSRは月〜土が基本の4体、日曜は日曜限定の6体
+      select id into it from jinro_items where rarity = 'SSR' and gacha and (case when ban = 'S' then banner = 'S' else banner is null end) order by random() limit 1;
     else
       select id into it from jinro_items where rarity = rar and gacha order by random() limit 1;
     end if;
@@ -424,6 +423,14 @@ insert into public.jinro_items(id, kind, rarity, gacha, banner) values
   ('c_thief', 'char', 'LR', true, 'A'),
   ('c_vampire', 'char', 'LR', true, 'B'),
   ('c_cursed', 'char', 'LR', true, 'B'),
+  ('c_witch', 'char', 'LR', true, 'S'),
+  ('c_cupid', 'char', 'LR', true, 'S'),
+  ('c_detective', 'char', 'SSR', true, 'S'),
+  ('c_bodyguard', 'char', 'SSR', true, 'S'),
+  ('c_ninja', 'char', 'SSR', true, 'S'),
+  ('c_madman', 'char', 'SSR', true, 'S'),
+  ('c_gravekeeper', 'char', 'SSR', true, 'S'),
+  ('c_wolfboy', 'char', 'SSR', true, 'S'),
   ('k_pop', 'skin', 'SR', true, null),
   ('k_neon', 'skin', 'SR', true, null),
   ('k_gold', 'skin', 'SR', true, null),
@@ -476,7 +483,7 @@ insert into public.jinro_items(id, kind, rarity, gacha, banner) values
   ('t_ssrall', 'title', 'SSR', false, null),
   ('t_charall', 'title', 'LR', false, null)
 on conflict (id) do update set kind = excluded.kind, rarity = excluded.rarity, gacha = excluded.gacha, banner = excluded.banner;
-delete from public.jinro_items where id not in ('c_medium', 'c_tough', 'c_nekomata', 'c_teru', 'c_fox', 'c_thief', 'c_vampire', 'c_cursed', 'k_pop', 'k_neon', 'k_gold', 'f_gold', 'f_purple', 'f_pink', 'w_gold', 'w_blue', 'b_moon', 'b_star', 'b_paw', 't_legend', 't_lord', 't_unbeaten', 's_all', 's_night', 'k_mint', 'k_sakura', 'k_sky', 'k_night', 'f_red', 'f_blue', 'f_green', 'w_black', 'w_white', 'b_check', 't_hunter', 't_guard', 't_doubt', 't_counter', 't_bluff', 's_read', 's_trap', 's_give', 's_fast', 't_novice', 't_fan', 't_owl', 't_rookie', 's_wolf', 's_no', 's_more', 's_fufu', 's_gg', 's_oops', 't_win10', 't_win25', 't_win50', 't_win100', 't_ssrall', 't_charall');
+delete from public.jinro_items where id not in ('c_medium', 'c_tough', 'c_nekomata', 'c_teru', 'c_fox', 'c_thief', 'c_vampire', 'c_cursed', 'c_witch', 'c_cupid', 'c_detective', 'c_bodyguard', 'c_ninja', 'c_madman', 'c_gravekeeper', 'c_wolfboy', 'k_pop', 'k_neon', 'k_gold', 'f_gold', 'f_purple', 'f_pink', 'w_gold', 'w_blue', 'b_moon', 'b_star', 'b_paw', 't_legend', 't_lord', 't_unbeaten', 's_all', 's_night', 'k_mint', 'k_sakura', 'k_sky', 'k_night', 'f_red', 'f_blue', 'f_green', 'w_black', 'w_white', 'b_check', 't_hunter', 't_guard', 't_doubt', 't_counter', 't_bluff', 's_read', 's_trap', 's_give', 's_fast', 't_novice', 't_fan', 't_owl', 't_rookie', 's_wolf', 's_no', 's_more', 's_fufu', 's_gg', 's_oops', 't_win10', 't_win25', 't_win50', 't_win100', 't_ssrall', 't_charall');
 insert into public.jinro_achievements(id, stat, goal, coins, tokens, item) values
   ('a_first', 'wins', 1, 100, 0, null),
   ('a_games10', 'games', 10, 200, 0, null),
@@ -486,5 +493,5 @@ insert into public.jinro_achievements(id, stat, goal, coins, tokens, item) value
   ('a_win50', 'wins', 50, 1000, 2, 't_win50'),
   ('a_win100', 'wins', 100, 2000, 5, 't_win100'),
   ('a_ssrall', 'ssr', 4, 1000, 0, 't_ssrall'),
-  ('a_charall', 'chars', 8, 3000, 5, 't_charall')
+  ('a_charall', 'chars', 16, 3000, 5, 't_charall')
 on conflict (id) do update set stat = excluded.stat, goal = excluded.goal, coins = excluded.coins, tokens = excluded.tokens, item = excluded.item;

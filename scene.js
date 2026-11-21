@@ -80,3 +80,13 @@ function run() {
   setTimeout(run, rnd(9000, 22000));
 }
 if (!reduce) setTimeout(run, rnd(2500, 6000));
+
+// アプリらしく:ピンチ・ダブルタップ・Ctrl+ホイールでのズームと、長押しメニューを止める
+document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key)) e.preventDefault(); });
+// 文字の選択・コピーは、部屋コードとフレンドコード(.code)と入力欄だけ
+document.addEventListener('contextmenu', e => { if (!e.target.closest('input,textarea,.code')) e.preventDefault(); });
+document.addEventListener('copy', e => { const sel = String(document.getSelection() || ''); const n = document.getSelection()?.anchorNode; const el = n && (n.nodeType === 1 ? n : n.parentElement); if (sel && !(el && el.closest('input,textarea,.code'))) e.preventDefault(); });

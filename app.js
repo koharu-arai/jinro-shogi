@@ -65,6 +65,7 @@ const evPush=(G,p,e)=>{(G.ev=G.ev||[]).push({p,e})};
 function newGame(setups,rules){const r={...DEFAULT_RULES,...(rules||{})};const decks=setups.map(s=>sanitizeDeck(s,r));return{decks,ev:[],board:buildBoard(decks),hands:[[],[]],turn:0,last:null,rules:r,time:[r.time,r.time],winner:null,reason:'',skip:null}}
 function targets(G,r,c){
   const P=G.board[r][c],out=[],s=P.owner===0?1:-1;
+  if(P.charm>0)return out;   // キューピッドの恋の矢で動けない
   for(const[dy,dx]of T[P.type].m){
     const nr=r+dy*s,nc=c+dx*s;
     if(nr<0||nr>4||nc<0||nc>2)continue;
@@ -97,16 +98,16 @@ function afterMove(G,A,nr,nc,out){
 }
 function applyMove(G,r,c,nr,nc){
   G.noCap=null;
-  const B=G.board,A=B[r][c],Q=B[nr][nc],me=A.owner,op=1-me,R=rulesOf(G);
+  const B=G.board,A=B[r][c],Q=B[nr][nc],me=A.owner,op=1-me,R=rulesOf(G);tickCharm(G,me);
   if(!Q){B[nr][nc]=A;B[r][c]=null;G.last={from:[r,c],to:[nr,nc],kind:'move'};return afterMove(G,A,nr,nc,{res:'駒を動かしました。',note:'相手が駒を動かしました。'})}
   const an=T[A.type].nm,qn=T[Q.type].nm;
   // 隠れた人狼の返り討ち(占い師と妖狐には効かない)
   if(Q.type==='wolf'&&!Q.revealed&&A.type!=='seer'&&A.type!=='fox'){
     B[r][c]=null;Q.revealed=true;G.last={from:[r,c],to:[nr,nc],kind:'counter'};evPush(G,op,'wolfCounter');
     let res=`返り討ち！ その駒は隠れた人狼でした。あなたの${an}は`,note=`あなたの人狼が相手の${an}を返り討ちにしました。人狼の正体が相手に知られました。`;
-    if(A.type==='nekomata'){evPush(G,me,'nekoDrag');B[nr][nc]=null;res+='消えましたが、猫又の道連れで人狼も消えました。';note+=' ただし猫又の道連れで、人狼も消えました。'}
+    if(A.type==='nekomata'){evPush(G,me,'nekoDrag');lose(G,A);lose(G,Q);B[nr][nc]=null;res+='消えましたが、猫又の道連れで人狼も消えました。';note+=' ただし猫又の道連れで、人狼も消えました。'}
     else if(A.type==='cursed'){evPush(G,me,'cursedTurn');B[r][c]=A;A.owner=op;A.shown=true;res+='消えずに、呪いで相手の駒に寝返りました。';note+=' 相手の呪われた者が、あなたの駒に寝返りました。'}
-    else{if(R.drops)G.hands[op].push(baseType(A));res+=R.drops?'相手の持ち駒になります。':'盤から取り除かれました。'}
+    else{lose(G,A);if(R.drops)G.hands[op].push(baseType(A));res+=R.drops?'相手の持ち駒になります。':'盤から取り除かれました。'}
     if(A.type==='teru'){evPush(G,me,'teruExtra');G.skip=op;res+=' てるてるの力で、もう1手続けて動けます。';note+=' てるてるの力で、相手がもう1手続けて動きます。'}
     if(A.type==='king'){G.winner=op;G.reason='王様が隠れた人狼に返り討ちにされました'}
     return{res,note,alert:true,bad:true};
@@ -116,13 +117,22 @@ function applyMove(G,r,c,nr,nc){
     Q.hurt=true;Q.shown=true;G.last={from:[r,c],to:[nr,nc],kind:'counter'};evPush(G,op,'toughEndure');
     return{res:'取れなかった！ その駒はタフガイで、1回耐えました。次は取れます。',note:'あなたのタフガイが攻撃に耐えました。正体が相手に知られ、負傷しました。',alert:true,bad:true};
   }
+  // ボディーガード:隣の味方が取られるとき、1回だけ身代わりになる
+  const bg=Q.type==='bodyguard'?null:ADJ.map(([y,x])=>[nr+y,nc+x]).find(([y,x])=>inB(y,x)&&B[y][x]&&B[y][x].owner===op&&B[y][x].type==='bodyguard');
+  if(bg){
+    const Gd=B[bg[0]][bg[1]];B[bg[0]][bg[1]]=null;lose(G,Gd);if(R.drops)G.hands[me].push('bodyguard');G.last={from:[r,c],to:[nr,nc],kind:'counter'};
+    return{res:'取れなかった！ 隣にいたボディーガードが身代わりになりました。',note:`あなたのボディーガードが身代わりになり、${qn}を守りました。`,alert:true,bad:true};
+  }
   if(Q.type==='wolf'&&!Q.revealed){if(A.type==='seer')evPush(G,me,'seerWolf');else if(A.type==='fox')evPush(G,me,'foxWolf')}
-  B[nr][nc]=A;B[r][c]=null;G.last={from:[r,c],to:[nr,nc],kind:'capture'};
-  let res=`相手の${qn}を取りました。`,note=`あなたの${qn}が取られました。`;
+  B[nr][nc]=A;B[r][c]=null;G.last={from:[r,c],to:[nr,nc],kind:'capture'};lose(G,Q);
+  const mad=Q.type==='madman';   // 狂人は取られると人狼に見える
+  let res=`相手の${mad?'人狼':qn}を取りました。`,note=`あなたの${qn}が取られました。${mad?'相手には人狼を取ったように見えています。':''}`;
   if(Q.type==='nekomata'){
-    evPush(G,op,'nekoDrag');B[nr][nc]=null;res+=' 猫又の道連れで、取った駒も消えました。';note+=` 猫又の道連れで、相手の${an}も消えました。`;
+    evPush(G,op,'nekoDrag');lose(G,A);B[nr][nc]=null;res+=' 猫又の道連れで、取った駒も消えました。';note+=` 猫又の道連れで、相手の${an}も消えました。`;
     if(A.type==='king'){G.winner=op;G.reason='王様が猫又に道連れにされました';return{res,note,alert:true,bad:true}}
-  }else if(R.drops){G.hands[me].push(baseType(Q));res+='持ち駒として打てます。'}
+  }else if(R.drops){G.hands[me].push(mad?'villager':baseType(Q));res+='持ち駒として打てます。'}
+  // 墓守:盤上にいる間、味方を取った駒の正体がわかる
+  if(B[nr][nc]===A&&hasOnBoard(G,op,'gravekeeper')&&!A.shown){A.shown=true;res+=' 墓守の力で、この駒の正体が相手に知られました。';note+=` 墓守の力で、取った駒が${an}だとわかりました。`}
   if(Q.type==='medium'&&B[nr][nc]===A){A.shown=true;res+=' 霊媒師の力で、この駒の正体が相手に知られました。';note+=` 霊媒師の力で、取った駒が${an}だとわかりました。`}
   if(Q.type==='teru'){evPush(G,op,'teruExtra');G.skip=me;res+=' てるてるの力で、相手がもう1手続けて動きます。';note+=' てるてるの力で、あなたはもう1手続けて動けます。'}
   if(A.type==='thief'&&Q.type!=='king'&&B[nr][nc]===A){A.orig='thief';A.type=Q.type;A.revealed=Q.type==='wolf';A.hurt=!!Q.hurt;res+=` 怪盗が${qn}に変身しました。`}
@@ -134,14 +144,57 @@ function applyMove(G,r,c,nr,nc){
 }
 // 吸血鬼の噛みつき:隣(8方向)の相手の駒を味方に変える。1局に1回
 const ADJ=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const inB=(y,x)=>y>=0&&y<5&&x>=0&&x<3;
 const canBite=P=>P&&P.type==='vampire'&&!P.bit;
+// 取られて盤から消えた駒(魔女の復活に使う)
+function lose(G,P){if(!P||P.type==='king')return;(G.lost||(G.lost=[[],[]]))[P.owner].push(baseType(P))}
+function hasOnBoard(G,p,t){for(let r=0;r<5;r++)for(let c=0;c<3;c++){const P=G.board[r][c];if(P&&P.owner===p&&P.type===t)return true}return false}
+// キューピッドの恋の矢:その持ち主が指すたびに1減る
+function tickCharm(G,p){for(let r=0;r<5;r++)for(let c=0;c<3;c++){const P=G.board[r][c];if(P&&P.owner===p&&P.charm>0)P.charm--}}
+// 1局に1回、手番を使う能力
+const AB={
+  vampire:{lb:'🦇 噛みつく',hint:'隣の相手の駒を味方に変える(王様・人狼には効かない)'},
+  wolfboy:{lb:'👑 王様のふり',hint:'相手からは、この駒が王様に見えるようになる',self:true},
+  detective:{lb:'🔍 調べる',hint:'隣の相手の駒1枚の正体を、自分だけ見る'},
+  ninja:{lb:'💨 跳ぶ',hint:'上下左右に2マス先の空きマスへ跳ぶ(間は飛び越える)'},
+  witch:{lb:'✨ 復活',hint:'取られた味方1枚を、自陣の手前2段の空きマスに戻す'},
+  cupid:{lb:'💘 恋の矢',hint:'隣の相手の駒1枚を、2手番のあいだ動けなくする(王様には効かない)'},
+};
+const canAb=P=>!!(P&&AB[P.type]&&!(P.type==='vampire'?P.bit:P.used));
+const seenBy=(P,v)=>!!(P.shown||(P.type==='wolf'&&P.revealed)||(P.seen&&P.seen[v]));
+function abTargets(G,r,c){
+  const P=G.board[r][c];if(!canAb(P)||G.noCap===P.owner)return[];
+  const me=P.owner,adjE=ADJ.map(([y,x])=>[r+y,c+x]).filter(([y,x])=>inB(y,x)&&G.board[y][x]&&G.board[y][x].owner!==me);
+  switch(P.type){
+    case'vampire':return biteTargets(G,r,c);
+    case'wolfboy':return P.fake?[]:[[r,c]];
+    case'detective':return adjE.filter(([y,x])=>!seenBy(G.board[y][x],me));
+    case'cupid':return adjE.filter(([y,x])=>G.board[y][x].type!=='king'&&!(G.board[y][x].charm>0));
+    case'ninja':return[[-2,0],[2,0],[0,-2],[0,2]].map(([y,x])=>[r+y,c+x]).filter(([y,x])=>inB(y,x)&&!G.board[y][x]);
+    case'witch':{if(!G.lost||!G.lost[me].length)return[];const rows=me===0?[3,4]:[0,1],out=[];for(const y of rows)for(let x=0;x<3;x++)if(!G.board[y][x])out.push([y,x]);return out}
+  }
+  return[];
+}
+function applyAbility(G,r,c,nr,nc){
+  const A=G.board[r][c];if(A.type==='vampire')return applyBite(G,r,c,nr,nc);
+  G.noCap=null;const me=A.owner;tickCharm(G,me);A.used=true;G.last={from:[r,c],to:[nr,nc],kind:'ab'};
+  const Q=G.board[nr][nc],qn=Q?T[Q.type].nm:'';
+  switch(A.type){
+    case'wolfboy':A.fake='king';return{res:'王様のふりをしました。相手からは、この駒が王様に見えています。',note:'相手の駒が、王様だと名乗り出ました。',alert:true};
+    case'detective':A.shown=true;(Q.seen||(Q.seen=[0,0]))[me]=1;return{res:`調べた！ その駒は${qn}でした(あなたにだけ見えます)。`,note:'相手の探偵に、駒を1枚調べられました。',alert:true};
+    case'ninja':A.shown=true;G.board[nr][nc]=A;G.board[r][c]=null;return afterMove(G,A,nr,nc,{res:'忍者が跳びました。',note:'相手の忍者が2マス跳びました。',alert:true});
+    case'witch':{A.shown=true;const t=G.lost[me].pop();G.board[nr][nc]={owner:me,type:t,revealed:false};return{res:`魔女の力で、${T[t].nm}が復活しました。`,note:'相手の魔女が、取られた駒を1枚復活させました。',alert:true}}
+    case'cupid':A.shown=true;Q.charm=2;return{res:'恋の矢が命中！ その駒は2手番のあいだ動けません。',note:`あなたの${qn}が恋に落ちて、2手番のあいだ動けません。`,alert:true};
+  }
+  return{res:'',note:''};
+}
 function biteTargets(G,r,c){
   const P=G.board[r][c];if(!canBite(P)||G.noCap===P.owner)return[];
   return ADJ.map(([y,x])=>[r+y,c+x]).filter(([y,x])=>y>=0&&y<5&&x>=0&&x<3&&G.board[y][x]&&G.board[y][x].owner!==P.owner);
 }
 function applyBite(G,r,c,nr,nc){
   G.noCap=null;
-  const A=G.board[r][c],Q=G.board[nr][nc];
+  const A=G.board[r][c],Q=G.board[nr][nc];tickCharm(G,A.owner);
   A.bit=true;A.shown=true;G.last={from:[r,c],to:[nr,nc],kind:'bite'};
   if(Q.type==='king'||Q.type==='wolf'){
     Q.marked=true;
@@ -152,25 +205,26 @@ function applyBite(G,r,c,nr,nc){
 }
 function applyDrop(G,i,r,c){
   G.noCap=null;
-  const me=G.turn,t=G.hands[me].splice(i,1)[0];
+  const me=G.turn,t=G.hands[me].splice(i,1)[0];tickCharm(G,me);
   G.board[r][c]={owner:me,type:t,revealed:false};G.last={to:[r,c],kind:'drop'};
   return{res:`${T[t].nm}を打ちました。相手からは正体が見えません。`,note:'相手が持ち駒を打ちました。'};
 }
 function decideTap(G,v,sel,r,c){
   const P=G.board[r][c];
   if(sel){
-    if(sel.bite){if(biteTargets(G,sel.r,sel.c).some(([x,y])=>x===r&&y===c))return{act:'bite',from:[sel.r,sel.c]};return{act:'sel',sel:null}}
+    if(sel.ab){if(abTargets(G,sel.r,sel.c).some(([x,y])=>x===r&&y===c))return{act:'ab',from:[sel.r,sel.c]};return{act:'sel',sel:null}}
     if(sel.hand!=null){if(!P)return{act:'drop',i:sel.hand}}
     else if(targets(G,sel.r,sel.c).some(([x,y])=>x===r&&y===c))return{act:'move',from:[sel.r,sel.c]};
   }
   return{act:'sel',sel:P&&P.owner===v&&!(sel&&sel.r===r&&sel.c===c)?{r,c}:null};
 }
 // 吸血鬼を選んでいるときの「噛みつく」ボタン
-function biteBar(G,sel){
+function abilityBar(G,sel){
   if(!sel||sel.hand!=null||sel.r==null)return'';
-  const P=G.board[sel.r][sel.c];if(!canBite(P))return'';
-  const n=biteTargets(G,sel.r,sel.c).length;
-  return`<div class="bitebar"><button class="btn ${sel.bite?'danger':'orange'} small" data-act="bite" ${n?'':'disabled'}>${sel.bite?'噛みつきをやめる':'🦇 噛みつく(1局に1回)'}</button><span class="muted">${n?(sel.bite?'噛みつく相手の駒をタップ':'隣の相手の駒を味方に変える'):'隣に相手の駒がいません'}</span></div>`;
+  const P=G.board[sel.r][sel.c];if(!canAb(P))return'';
+  const ab=AB[P.type],n=abTargets(G,sel.r,sel.c).length;
+  if(ab.self)return`<div class="bitebar"><button class="btn orange small" data-act="abSelf" ${n?'':'disabled'}>${ab.lb}(1局に1回)</button><span class="muted">${esc(ab.hint)}</span></div>`;
+  return`<div class="bitebar"><button class="btn ${sel.ab?'danger':'orange'} small" data-act="bite" ${n?'':'disabled'}>${sel.ab?'やめる':ab.lb+'(1局に1回)'}</button><span class="muted">${n?(sel.ab?'光っているマスをタップ':esc(ab.hint)):'いまは使えません'}</span></div>`;
 }
 
 
@@ -226,7 +280,7 @@ function genMoves(G,p,limitDrops){
   const B=G.board,mv=[];
   for(let r=0;r<5;r++)for(let c=0;c<3;c++){const P=B[r][c];if(!P||P.owner!==p)continue;
     for(const[nr,nc]of targets(G,r,c))mv.push({k:'m',r,c,nr,nc});
-    for(const[nr,nc]of biteTargets(G,r,c))mv.push({k:'b',r,c,nr,nc});}
+    for(const[nr,nc]of abTargets(G,r,c))mv.push({k:'a',r,c,nr,nc});}
   if(rulesOf(G).drops&&G.hands[p].length){
     const seen=new Set(),emp=[];for(let r=0;r<5;r++)for(let c=0;c<3;c++)if(!B[r][c])emp.push([r,c]);
     G.hands[p].forEach((t,i)=>{if(seen.has(t))return;seen.add(t);let e=emp;if(limitDrops&&e.length>4)e=e.slice().sort(()=>Math.random()-.5).slice(0,4);e.forEach(([nr,nc])=>mv.push({k:'d',i,nr,nc}))});
@@ -234,7 +288,7 @@ function genMoves(G,p,limitDrops){
   return mv;
 }
 function playMove(G,m){
-  const out=m.k==='m'?applyMove(G,m.r,m.c,m.nr,m.nc):m.k==='b'?applyBite(G,m.r,m.c,m.nr,m.nc):applyDrop(G,m.i,m.nr,m.nc);
+  const out=m.k==='m'?applyMove(G,m.r,m.c,m.nr,m.nc):m.k==='a'?applyAbility(G,m.r,m.c,m.nr,m.nc):applyDrop(G,m.i,m.nr,m.nc);
   if(G.winner==null)G.turn=nextTurn(G);
   return out;
 }
@@ -244,7 +298,9 @@ function evalFor(G,c){
   for(let r=0;r<5;r++)for(let x=0;x<3;x++){const P=G.board[r][x];if(!P)continue;const v=VAL[P.type]??3,sg=P.owner===c?1:-1;
     s+=sg*v;if(P.owner===c&&!P.shown&&!(P.type==='wolf'&&P.revealed))s+=.3;if(P.type==='wolf'&&!P.revealed)s+=sg*1.5;
     if(P.type==='king'&&R.try){const prog=P.owner===0?4-r:r;s+=sg*prog*.4}
-    if(P.type==='tough'&&P.hurt)s-=sg*2;}
+    if(P.type==='tough'&&P.hurt)s-=sg*2;
+    if(P.charm>0)s-=sg*1.2;if(P.owner!==c&&P.seen&&P.seen[c])s+=.4;if(P.owner===c&&P.fake)s+=.5;}
+  if(G.lost&&G.lost[c].length&&hasOnBoard(G,c,'witch'))s+=1;
   if(R.drops)for(const p of[0,1])for(const t of G.hands[p])s+=(p===c?1:-1)*(VAL[t]??3)*.6;
   // 王様が取られそう
   for(const p of[0,1]){let kr=-1,kc=-1;for(let r=0;r<5;r++)for(let x=0;x<3;x++){const P=G.board[r][x];if(P&&P.owner===p&&P.type==='king'){kr=r;kc=x}}
@@ -255,7 +311,8 @@ function evalFor(G,c){
 function determinize(G,c){
   const D=clone(G),pool=[...SWAP_BASE,...(rulesOf(G).chars?NEWC:[])];const unk=[],known=new Set();
   for(let r=0;r<5;r++)for(let x=0;x<3;x++){const P=D.board[r][x];if(!P||P.owner===c)continue;
-    if(P.shown||(P.type==='wolf'&&P.revealed))known.add(P.type);else unk.push(P);}
+    if(P.fake&&!(P.seen&&P.seen[c])){P.type='king';known.add('king');continue}   // 王様のふりはCPUもだまされる
+    if(P.shown||(P.type==='wolf'&&P.revealed)||(P.seen&&P.seen[c]))known.add(P.type);else unk.push(P);}
   const bag=[];if(!known.has('king'))bag.push('king');if(!known.has('wolf')&&Math.random()<.75)bag.push('wolf');
   const rest=pool.filter(t=>!known.has(t)).sort(()=>Math.random()-.5);
   while(bag.length<unk.length)bag.push(rest.length?rest.pop():'villager');
@@ -330,7 +387,7 @@ function boardHTML(G,v,{sel=null,interactive=false,reveal=false,looks=[{},{}],wa
   const tg=new Set();
   if(interactive&&sel){
     if(sel.hand!=null){for(let r=0;r<5;r++)for(let c=0;c<3;c++)if(!G.board[r][c])tg.add(r+','+c)}
-    else if(sel.bite)biteTargets(G,sel.r,sel.c).forEach(([a,b])=>tg.add(a+','+b));
+    else if(sel.ab)abTargets(G,sel.r,sel.c).forEach(([a,b])=>tg.add(a+','+b));
     else targets(G,sel.r,sel.c).forEach(([a,b])=>tg.add(a+','+b));
   }
   let h='<div class="boardwrap"><div class="board" aria-label="盤面">';
@@ -338,17 +395,20 @@ function boardHTML(G,v,{sel=null,interactive=false,reveal=false,looks=[{},{}],wa
     const[r,c]=toAbs(v,dr,dc),P=G.board[r][c],L=G.last;let cls='cell';
     if(L&&!reveal){
       const isTo=L.to[0]===r&&L.to[1]===c,isFrom=L.from&&L.from[0]===r&&L.from[1]===c;
-      if(isTo||isFrom)cls+=L.kind==='counter'||L.kind==='bite'?' counter':' last';
+      if(isTo||isFrom)cls+=L.kind==='counter'||L.kind==='bite'||L.kind==='ab'?' counter':' last';
     }
     if(interactive&&sel&&sel.hand==null&&sel.r===r&&sel.c===c)cls+=' sel';
-    if(tg.has(r+','+c))cls+=' tgt'+(P?' hasp':'')+(sel.bite?' bitet':'');
+    if(tg.has(r+','+c))cls+=' tgt'+(P?' hasp':'')+(sel.ab?' bitet':'');
     if(P&&P.marked&&P.owner!==v&&!reveal)cls+=' marked';
     let inner='';
     if(P){
-      const mine=!watch&&P.owner===v,vis=mine||reveal||P.shown||(P.type==='wolf'&&P.revealed);
+      const mine=!watch&&P.owner===v,peek=!watch&&P.seen&&P.seen[v],vis=mine||reveal||P.shown||(P.type==='wolf'&&P.revealed)||peek;
+      const fake=!mine&&!reveal&&!peek&&P.fake;   // 狼少年の「王様のふり」
       if(watch&&P.owner!==v&&vis){inner=tile(P.type,{enemy:true,wolf:P.revealed?'open':'hid',look:looks[P.owner]||{},hurt:P.hurt});h+=`<button class="${cls}" tabindex="-1" aria-label="${dr+1}段目 ${dc+1}列目">${inner}</button>`;continue}
       const look=looks[P.owner]||{};
-      inner=vis?tile(P.type,{enemy:!mine,wolf:P.revealed?'open':'hid',look,hurt:P.hurt}):tile(null,{hidden:true,look});
+      inner=fake?tile(P.fake,{enemy:true,look}):vis?tile(P.type,{enemy:!mine,wolf:P.revealed?'open':'hid',look,hurt:P.hurt}):tile(null,{hidden:true,look});
+      if(P.charm>0)inner+=`<span class="cbadge" title="恋の矢で動けない">💘${P.charm}</span>`;
+      if(peek&&!mine&&!reveal)inner+='<span class="pbadge" title="探偵で調べた駒">🔍</span>';
     }
     h+=`<button class="${cls}" data-act="cell" data-r="${dr}" data-c="${dc}" ${interactive?'':'tabindex="-1"'} aria-label="${dr+1}段目 ${dc+1}列目">${inner}</button>`;
   }
@@ -534,7 +594,7 @@ function cpuTurn(){
       if(L!==my||my.phase!=='play')return;
       my.thinking=false;
       if(!m){G.winner=0;G.reason='CPUが動ける駒がなくなりました';return cpuOver()}
-      const out=m.k==='m'?applyMove(G,m.r,m.c,m.nr,m.nc):m.k==='b'?applyBite(G,m.r,m.c,m.nr,m.nc):applyDrop(G,m.i,m.nr,m.nc);
+      const out=m.k==='m'?applyMove(G,m.r,m.c,m.nr,m.nc):m.k==='a'?applyAbility(G,m.r,m.c,m.nr,m.nc):applyDrop(G,m.i,m.nr,m.nc);
       if(G.winner!=null)return cpuOver();
       const n=nextTurn(G);G.turn=n;my.byo=BYO;
       my.notice=out.note.replace(/相手/g,'CPU')+(n===1?' CPUがもう1手続けて指します。':'');my.noticeAlert=!!out.alert;my.sel=null;
@@ -576,7 +636,7 @@ function renderLocal(){
     <div class="side"><span class="who">${pName(op)}</span>${L.cpu&&G.turn===1?'<span class="badge turn">考え中…</span>':''}${rulesOf(G).drops?`<span class="badge">持ち駒 ${G.hands[op].length}枚</span>`:''}</div>
     ${boardHTML(G,v,{sel:L.sel,interactive:play,looks:localLooks()})}
     <div class="side"><span class="who">${pName(v)}</span>${G.turn===v?'<span class="badge turn">あなたの番</span>':''}</div>
-    ${play?biteBar(G,L.sel):''}
+    ${play?abilityBar(G,L.sel):''}
     ${handHTML(G,v,L.sel,play,localLooks()[v])}
     ${(play||L.cpu)&&L.notice?`<div class="status${L.noticeAlert?' alert':''}">${esc(L.notice)}</div>`:''}
     ${L.cpu&&G.turn===1&&L.phase==='play'?'<div class="status wait">CPUが考えています…</div>':''}
@@ -596,14 +656,15 @@ function localAct(a,el){
   else if(a==='confirm'&&L.cpu){L.sel=null;L.msg='';L.setup[1]=cpuDeck(L.cpu.level,L.rules);L.G=newGame(L.setup,L.rules);L.notice='対局開始。あなたが先手です。';L.noticeAlert=false;L.phase='play';lastT=null}
   else if(a==='confirm'){L.sel=null;L.msg='';if(L.setupP===0){L.setupP=1;L.cover={p:1,next:'setup'}}else{L.G=newGame(L.setup,L.rules);L.notice='対局開始。先手から指します。';L.noticeAlert=false;L.cover={p:0,next:'play'}}L.phase='cover'}
   else if(a==='hand'){const i=+el.dataset.i;L.sel=L.sel&&L.sel.hand===i?null:{hand:i}}
-  else if(a==='bite'){if(L.sel)L.sel={r:L.sel.r,c:L.sel.c,bite:!L.sel.bite}}
+  else if(a==='bite'){if(L.sel)L.sel={r:L.sel.r,c:L.sel.c,ab:!L.sel.ab}}
+  else if(a==='abSelf'&&L.phase==='play'&&L.sel){const G=L.G,[r,c]=[L.sel.r,L.sel.c];L.sel={r,c,ab:true};const v=L.cpu?0:G.turn;const[dr,dc]=v===0?[r,c]:[4-r,2-c];return localAct('cell',{dataset:{r:String(dr),c:String(dc)}})}
   else if(a==='cell'&&L.phase==='play'){
     const G=L.G,[r,c]=toAbs(G.turn,+el.dataset.r,+el.dataset.c),d=decideTap(G,G.turn,L.sel,r,c);
     if(d.act==='sel')L.sel=d.sel;
-    else if(L.cpu){if(G.turn!==0)return;const out=d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='bite'?applyBite(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c);L.sel=null;L.byo=BYO;
+    else if(L.cpu){if(G.turn!==0)return;const out=d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='ab'?applyAbility(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c);L.sel=null;L.byo=BYO;
       if(G.winner!=null){cpuOver();return}
       const n=nextTurn(G);G.turn=n;L.notice=out.res+(n===0?' てるてるの力で、もう1手続けて指せます(移動だけ)。':'');L.noticeAlert=!!out.alert;if(n===1)setTimeout(cpuTurn,0)}
-    else{const out=d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='bite'?applyBite(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c);if(G.winner==null){const save=G.skip,nc=G.noCap;const n=nextTurn(G);G.skip=save;G.noCap=nc;out.same=n===G.turn}localEnd(out)}
+    else{const out=d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='ab'?applyAbility(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c);if(G.winner==null){const save=G.skip,nc=G.noCap;const n=nextTurn(G);G.skip=save;G.noCap=nc;out.same=n===G.turn}localEnd(out)}
   }
   else if(a==='pass'){const G=L.G;const n=nextTurn(G);const same=n===G.turn;G.turn=n;L.notice=same?'てるてるの力で、もう1手続けて指せます(移動だけ。駒は取れません)。':L.out.note;L.noticeAlert=!!L.out.alert;if(same){L.phase='play'}else{L.cover={p:G.turn,next:'play'};L.phase='cover'}}
   else if(a==='resign'){if(L.resignArm){if(L.cpu){L.G.winner=1;L.G.reason='あなたが投了しました';L.phase='over'}else{L.G.winner=1-L.G.turn;L.G.reason=`${NAME[L.G.turn]}が投了しました`;L.phase='over'}}else L.resignArm=true}
@@ -745,7 +806,7 @@ async function writeEnd(winner,reason){
 /* ---- in-game stamps ---- */
 // リアクション道具(キャラ素材)。id は r_<キャラ>
 const REACT=k=>'r_'+k;
-const myReactions=()=>C3KEYS.filter(k=>unlocks(k).prop);
+const myReactions=()=>C3KEYS.filter(k=>ART[k]&&ART[k].prop&&unlocks(k).prop);
 function showBubble(uid,item){
   const rk=typeof item==='string'&&item.startsWith('r_')?item.slice(2):null;
   const it=ITEM[item];if(!it&&!(rk&&ART[rk]))return;
@@ -831,7 +892,7 @@ function renderOnline(){
     ${playerRow(opUid,'相手',op,`${rulesOf(g).drops?`<span class="badge">持ち駒 ${g.hands[op].length}枚</span>`:''}${g.turn===op?'<span class="badge turn">考え中</span>':''}`)}
     ${boardHTML(g,me,{sel:O.sel,interactive:myTurn,looks})}
     ${playerRow(myUid,'あなた',me,g.turn===me?'<span class="badge turn">あなたの番</span>':'')}
-    ${myTurn?biteBar(g,O.sel):''}
+    ${myTurn?abilityBar(g,O.sel):''}
     ${handHTML(g,me,O.sel,myTurn,myLook())}
     ${status}${err}
     ${stampBar()}
@@ -877,9 +938,10 @@ async function onlineAct(a,el){
     const g=O.game;if(!g||g.phase!=='play'||g.turn!==O.seat||O.busy)return;
     const[r,c]=toAbs(O.seat,+el.dataset.r,+el.dataset.c),d=decideTap(g,O.seat,O.sel,r,c);
     if(d.act==='sel')O.sel=d.sel;
-    else return commit(G=>d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='bite'?applyBite(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c));
+    else return commit(G=>d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='ab'?applyAbility(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c));
   }
-  else if(a==='bite'){if(O.sel)O.sel={r:O.sel.r,c:O.sel.c,bite:!O.sel.bite}}
+  else if(a==='bite'){if(O.sel)O.sel={r:O.sel.r,c:O.sel.c,ab:!O.sel.ab}}
+  else if(a==='abSelf'&&O.sel){const s2=O.sel;return commit(G=>applyAbility(G,s2.r,s2.c,s2.r,s2.c))}
   else if(a==='oresign'){if(O.resignArm){O.resignArm=false;return writeEnd(1-O.seat,`${NAME[O.seat]}が投了しました`)}O.resignArm=true}
   else if(a==='rematch'){
     O.busy=true;render();
@@ -1073,31 +1135,44 @@ const CAP_COLOR={N:'#e9ecf4',R:'#3f86f0',SR:'#a855f7',SSR:'#f5b82e',LR:'#ff6f93'
 // 今日のガチャ(サーバーの日本時間を優先)
 const WD='日月火水木金土';
 function todayBanner(){if(M.st?.banner)return M.st.banner;const d=new Date(Date.now()+9*3600e3).getUTCDay();return bannerOfDay(d||7)}
-const bannerItems=k=>ITEMS.filter(i=>i.kind==='char'&&(i.rarity!=='LR'||k==='S'||i.banner===k));
+// そのガチャで出るキャラ:LRは曜日のキャラ。SSRは月〜土が基本の4体、日曜は日曜限定の6体
+const inBanner=(i,k)=>i.kind==='char'&&(i.rarity==='LR'?i.banner===k:k==='S'?i.banner==='S':!i.banner);
+const bannerItems=k=>ITEMS.filter(i=>inBanner(i,k));
+// 出るキャラを1体ずつスライドで見る
+function charSlides(list){
+  return`<div class="slides" aria-label="このガチャで出るキャラ">${list.map((i,n)=>{const k=i.char,pf=PROFILE[k]||{},own=owned().has(i.id);
+    return`<article class="slide r-${i.rarity}">
+      <div class="sl-top"><span class="rar big r-${i.rarity}">${i.rarity}</span><small class="sl-n">${n+1}/${list.length}</small>${own?'<span class="ownd2">所持</span>':''}</div>
+      <div class="sl-art">${fullbodyImg(k,{cls:'sl',silhouetteIfLocked:false})}<span class="sl-fallback">${tile(k,{})}</span></div>
+      <h3>${esc(T[k].nm)}${pf.name?`<small>${esc(pf.name)}</small>`:''}</h3>
+      ${pf.alias?`<p class="sl-alias">${esc(pf.alias)}</p>`:''}
+      ${pf.intro?`<p class="sl-story">${esc(pf.intro)}</p>`:''}
+      <div class="sl-piece">${tile(k,{})}<div><b>どんな駒？</b><p>${esc(T[k].d)}</p></div></div>
+      <button class="btn ghost small" data-act="charInfo" data-c="${k}">くわしく見る</button>
+    </article>`}).join('')}</div><p class="muted center swipehint">← 左右にスワイプして1体ずつ見られます →</p>`;
+}
 function renderGacha(){
   const c=M.st?.coins??0,busy=!!M.anim,tk=M.st?.tokens??0,bk=todayBanner(),BN=BANNERS[bk],sun=bk==='S';
   const pick=bannerItems(bk).sort((a,b)=>RARITY_ORDER.indexOf(a.rarity)-RARITY_ORDER.indexOf(b.rarity));
   const ssr=ITEMS.filter(i=>i.kind==='char'&&i.rarity==='SSR'),own=owned();
-  const days=Object.entries(BANNERS).map(([k,b])=>`<span class="wday${k===bk?' on':''}">${b.days.map(d=>WD[d%7]).join('')}<small>${k==='A'?'通常':k==='B'?'新キャラ':'えらべる'}</small></span>`).join('');
-  const needPick=sun&&!M.pick;
+  const days=Object.entries(BANNERS).map(([k,b])=>`<span class="wday${k===bk?' on':''}">${b.days.map(d=>WD[d%7]).join('')}<small>${k==='A'?'通常':k==='B'?'新キャラ':'日曜限定'}</small></span>`).join('');
   return`${backBar('ガチャ')}
-    <section class="gbanner b-${bk}"><span class="tag">${sun?'日曜限定':'本日のガチャ'}</span><h2>${esc(BN.name)}</h2><p>${esc(BN.desc)}${sun?'。':'！'}</p>
-      ${sun?`<p class="pickhint">${M.pick?`ピックアップ中:<b>${esc(ITEM[M.pick].name)}</b>(タップで変更)`:'↓ ピックアップするキャラをタップして選んでください'}</p>`:''}
-      <div class="gpick">${pick.map(i=>sun?`<button class="gp pickable${M.pick===i.id?' on':''}" data-act="gpick" data-id="${i.id}" aria-pressed="${M.pick===i.id}">${tile(i.char)}<span class="rar r-${i.rarity}">${i.rarity}</span>${own.has(i.id)?'<span class="ownd">所持</span>':''}</button>`:`<div class="gp">${tile(i.char)}<span class="rar r-${i.rarity}">${i.rarity}</span></div>`).join('')}</div>
+    <section class="gbanner b-${bk}"><span class="tag">${sun?'日曜限定':'本日のガチャ'}</span><h2>${esc(BN.name)}</h2><p>${esc(BN.desc)}</p>
+      <div class="gpick">${pick.map(i=>`<div class="gp">${tile(i.char)}<span class="rar r-${i.rarity}">${i.rarity}</span></div>`).join('')}</div>
       <div class="wdays" aria-label="曜日ごとのガチャ">${days}</div></section>
+    <h3 class="sechead">このガチャで出るキャラ</h3>
+    ${charSlides(pick)}
     <div class="gbtns">
-      <button class="btn ghost gbtn" data-act="pull" data-n="1" ${busy||c<COST.single||needPick?'disabled':''}><b>1回引く</b><small>${coinIcon}${COST.single}</small></button>
-      <button class="btn orange gbtn" data-act="pull" data-n="10" ${busy||c<COST.ten||needPick?'disabled':''}><b>10連ガチャ</b><small>${coinIcon}${COST.ten}・SR以上1つ確定</small></button>
+      <button class="btn ghost gbtn" data-act="pull" data-n="1" ${busy||c<COST.single?'disabled':''}><b>1回引く</b><small>${coinIcon}${COST.single}</small></button>
+      <button class="btn orange gbtn" data-act="pull" data-n="10" ${busy||c<COST.ten?'disabled':''}><b>10連ガチャ</b><small>${coinIcon}${COST.ten}・SR以上1つ確定</small></button>
     </div>
-    ${needPick?'<p class="muted">日曜日はキャラを1体選んでから引けます。</p>':''}
     ${c<COST.single?`<p class="muted">コインはログインボーナスとデイリーミッションで貯まります。</p>`:''}
     ${M.err?`<p class="err">${esc(M.err)}</p>`:''}
     <div class="card tokens"><div class="row"><span class="tkn" aria-hidden="true">★</span><b>特別コイン ${tk}/${TOKEN_COST}枚</b></div>
       <p class="muted">持っているキャラが出ると特別コインがもらえます(SSR ${TOKEN_REFUND.SSR}枚・LR ${TOKEN_REFUND.LR}枚)。${TOKEN_COST}枚で、好きなSSRキャラ1体と交換できます。</p>
       <div class="exrow">${ssr.map(i=>{const has=own.has(i.id);return`<div class="ex">${tile(i.char)}<b>${esc(i.name)}</b><button class="btn ${has?'ghost':'orange'} small" data-act="exchange" data-id="${i.id}" ${has||tk<TOKEN_COST?'disabled':''}>${has?'所持':'交換'}</button></div>`}).join('')}</div></div>
     <details class="card rates"><summary><b>出る確率と景品</b></summary>
-      ${sun?`<p class="muted">日曜日は、選んだキャラと同じレア度が出たら必ずそのキャラになります(LRなら${RATES.LR}%、SSRなら${RATES.SSR}%)。もう一方のレア度が出たときは、ふだんどおりそのレア度のキャラからランダムです。</p>`:''}
-      ${RARITY_ORDER.map(r=>{const pr=sun&&M.pick?ITEM[M.pick].rarity:null,list=ITEMS.filter(i=>i.rarity===r&&i.gacha!==false&&(r===pr?i.id===M.pick:(r!=='LR'||sun||i.banner===bk)));return`<div class="rate"><div class="row"><span class="rar r-${r}">${r}</span><b>${RARITY_LABEL[r]}</b><span class="spacer"></span><b>${RATES[r]}%</b></div><p class="muted">${list.map(i=>esc(i.name)).join('・')}</p></div>`}).join('')}
+      ${RARITY_ORDER.map(r=>{const list=ITEMS.filter(i=>i.rarity===r&&i.gacha!==false&&(i.kind!=='char'||inBanner(i,bk)));return`<div class="rate"><div class="row"><span class="rar r-${r}">${r}</span><b>${RARITY_LABEL[r]}</b><span class="spacer"></span><b>${RATES[r]}%</b></div><p class="muted">${list.map(i=>esc(i.name)).join('・')}</p></div>`}).join('')}
       <p class="muted">持っている景品が出たときは、N ${REFUND.N}・R ${REFUND.R}・SR ${REFUND.SR}コインが戻ります。キャラ(SSR・LR)は特別コインになります。</p>
     </details>`;
 }
@@ -1153,7 +1228,7 @@ async function pull(n){
   M.err='';const t0=Date.now();
   M.anim={phase:'turn',n,results:null};render();sfx('gacha_lever');
   let r;
-  try{r=await rpc('jinro_gacha',{p_count:n,p_pick:todayBanner()==='S'?M.pick:null})}
+  try{r=await rpc('jinro_gacha',{p_count:n,p_pick:null})}
   catch(e){M.anim=null;M.err=e.message;render();return}
   M.st.coins=r.coins;M.st.tokens=r.tokens;r.results.forEach(x=>{if(!M.st.items.includes(x.item))M.st.items.push(x.item)});
   const best=r.results.reduce((b,x)=>RANK(x.rarity)<RANK(b)?x.rarity:b,'N');
@@ -1289,6 +1364,7 @@ function achHTML(k){
 }
 function exprGallery(k){
   const u=unlocks(k),a=ART[k];
+  if(!a||a.extra)return'';   // 日曜ガチャの8体は表情・道具の素材がまだない
   return`<div class="exprs">${Object.entries(a.expr).map(([e,src])=>u.expr?`<button class="expr" data-act="charLine" data-c="${k}" data-e="${e}">${lazyImg(src,EXPR_LABEL[e])}<small>${EXPR_LABEL[e]}</small></button>`:`<span class="expr locked"><span class="q">？</span><small>${EXPR_LABEL[e]}</small></span>`).join('')}
     ${u.prop?`<span class="expr prop">${lazyImg(a.prop,'リアクション道具')}<small>道具</small></span>`:`<span class="expr locked"><span class="q">？</span><small>道具</small></span>`}</div>`;
 }
