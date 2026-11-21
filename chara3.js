@@ -180,7 +180,7 @@ export function fullbodyImg(k, { cls = '', silhouetteIfLocked = true } = {}) {
   if (!a) return '';
   const src = u.lux && a.fullbodyLux ? a.fullbodyLux : a.fullbody;
   const locked = !u.full && silhouetteIfLocked;
-  return `<span class="fullbody ${locked ? 'locked' : ''} ${u.lux ? 'lux' : ''} ${cls}">${lazyImg(src, PROFILE[k]?.name || k)}${locked ? '<span class="lockmark">？？？</span>' : ''}</span>`;
+  return `<span class="fullbody ${locked ? 'locked' : ''} ${u.lux ? 'lux' : ''} ${artStyle() === 'flat' ? 'flatanim' : ''} ${cls}">${lazyImg(src, PROFILE[k]?.name || k)}${locked ? '<span class="lockmark">？？？</span>' : ''}</span>`;
 }
 
 /* ===== 日曜限定ガチャの8体(紹介文はマルのたたき台を調整。全身イラストは本人経由で届き次第 chara3/fullbody/ に置く) ===== */
@@ -205,3 +205,28 @@ Object.assign(CHARA_ACH, {
   bodyguard: { stat: 'wins', goal: 30, label: 'ボディーガードを編成して30勝' }, witch: { stat: 'wins', goal: 30, label: '魔女を編成して30勝' },
   ninja: { stat: 'wins', goal: 30, label: '忍者を編成して30勝' }, cupid: { stat: 'wins', goal: 30, label: 'キューピッドを編成して30勝' },
 });
+
+/* ===== フラット版マスコット（背景つき・表情つき）への切り替え =====
+   図鑑の「イラスト切替」で選ぶ。この端末に保存され、選んだら全身イラストと表情が
+   flat/ のマスコット版に差し替わる（顔アイコンとリアクション道具はアニメ版のまま）。
+   フラット版の全身には CSS の「flatanim」でふわふわ浮くアニメーションが付く。 */
+const ASTYLE_KEY = 'jinro-art-style';
+export function artStyle() {
+  try { return localStorage.getItem(ASTYLE_KEY) === 'flat' ? 'flat' : 'anime'; } catch (e) { return 'anime'; }
+}
+export function setArtStyle(s) {
+  try { localStorage.setItem(ASTYLE_KEY, s === 'flat' ? 'flat' : 'anime'); } catch (e) { /* noop */ }
+  location.reload();
+}
+if (artStyle() === 'flat') {
+  for (const k of KEYS) {
+    if (!ART[k]) continue;
+    ART[k] = {
+      ...ART[k],
+      fullbody: `flat/${k}.webp`,
+      expr: { angry: `flat/expr/${k}-angry.webp`, surprise: `flat/expr/${k}-surprise.webp`, shy: `flat/expr/${k}-shy.webp` },
+    };
+    delete ART[k].fullbodyLux;
+    delete ART[k].iconLux;
+  }
+}

@@ -1,5 +1,5 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { ART, KEYS as C3KEYS, LR_KEYS, PROFILE, STORY, WORLD, LADDER, CHARA_ACH, EXPR_LABEL, unlocks, nextLadder, recordGame, faceIcon, fullbodyImg, lazyImg } from "./chara3.js";
+import { ART, KEYS as C3KEYS, LR_KEYS, PROFILE, STORY, WORLD, LADDER, CHARA_ACH, EXPR_LABEL, unlocks, nextLadder, recordGame, faceIcon, fullbodyImg, lazyImg, artStyle, setArtStyle } from "./chara3.js";
 import { CHARS, BANNERS, bannerOfDay, BASE_RARITY, EXP, RANKS, ITEMS, ITEM, ACH_ITEMS, ACHIEVEMENTS, DEFAULT_STAMPS, MISSIONS, RATES, REFUND, TOKEN_REFUND, TOKEN_COST, COST, RARITY_LABEL, RARITY_ORDER, KIND_LABEL, LOGIN } from "./catalog.js";
 
 /* ===== rules data ===== */
@@ -1449,7 +1449,8 @@ function charModal(){
 function zukanHTML(){
   const done=C3KEYS.filter(k=>unlocks(k).icon).length;
   return`<div class="card zhead"><b>キャラ図鑑</b><p class="muted">キャラを編成して対局すると、顔アイコン→表情→リアクション道具→全身イラストの順に解放されます。キャラ別アチーブメントを達成すると特別なアイコンも。${done}/${C3KEYS.length}体 解放中</p>
-    <button class="btn ghost small" data-act="go" data-to="story">📖 物語『月夜の盤上』を読む</button></div>
+    <button class="btn ghost small" data-act="go" data-to="story">📖 物語『月夜の盤上』を読む</button>
+    <button class="btn ghost small" data-act="artStyle">🎨 イラスト切替：${artStyle()==='flat'?'フラット版':'アニメ版'}</button></div>
     <div class="zgrid">${C3KEYS.map(k=>{const u=unlocks(k),nx=nextLadder(k),r=rarOfChar(k),has=hasChar(k);
       return`<button class="zcard r-${r}${u.icon?'':' locked'}" data-act="charInfo" data-c="${k}">
         <span class="rar r-${r}">${r}</span>
@@ -1538,6 +1539,7 @@ async function metaAct(a,el){
   if(a==='cancelName'){P.editing=false;render();return}
   if(a==='closeModal'){M.modal=null;render();return}
   if(a==='charInfo'){M.modal={type:'char',c:el.dataset.c};render();return}
+  if(a==='artStyle'){setArtStyle(artStyle()==='flat'?'anime':'flat');return}
   if(a==='openLogin'){M.modal={type:'login'};render();return}
   if(a==='claimLogin'){M.modal.busy=true;render();try{const r=await rpc('jinro_claim_login');M.st.coins=r.coins;M.st.login_claimable=false;M.st.streak=r.streak;M.modal={type:'login',result:r}}catch(e){M.modal=null;M.err=e.message;refreshState()}render();return}
   if(a==='openAvatar'){M.modal={type:'avatar',av:{...avOf(O.uid)}};render();return}
@@ -1568,7 +1570,7 @@ async function metaAct(a,el){
   if(a==='inviteFriend')return inviteFriend(el.dataset.uid);
   if(a==='acceptInvite'){S.screen='online';render();return joinRoom(el.dataset.code)}
 }
-const META=new Set(['artTap','zukan','heroNext','heroDone','charLine','storyPlay','storyNext','storyClose','avIllus','charInfo','gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
+const META=new Set(['artTap','zukan','heroNext','heroDone','charLine','storyPlay','storyNext','storyClose','avIllus','charInfo','artStyle','gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
 document.getElementById('app').addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const a=el.dataset.act;
   if(a==='home'){const wasGame=S.screen==='online'||S.screen==='local';if(S.screen==='online')leaveRoom(true);S.screen=wasGame?'battle':'home';render();refreshState();window.scrollTo(0,0);return}

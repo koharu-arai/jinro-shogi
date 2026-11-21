@@ -800,3 +800,8 @@ input,textarea,.code{-webkit-user-select:text;user-select:text;-webkit-touch-cal
 .abtag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;background:rgba(120,200,255,.2);color:#bfe6ff}
 .pr-d{font-size:12px;line-height:1.6;color:#e2daf5}
 .pr-body .where{justify-self:start}
+
+/* フラット版マスコット：ふわふわ浮くアニメーション（イラスト切替がフラット版のとき） */
+.fullbody.flatanim img{animation:flatfloat 3.4s ease-in-out infinite;transform-origin:50% 90%}
+@keyframes flatfloat{0%,100%{transform:translateY(0) rotate(-.7deg) scale(1)}50%{transform:translateY(-9px) rotate(.7deg) scale(1.02)}}
+@media (prefers-reduced-motion: reduce){.fullbody.flatanim img{animation:none!important}}
