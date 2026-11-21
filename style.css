@@ -531,3 +531,7 @@ body{background:#140c3c}
 .cell{background:linear-gradient(180deg,#24196a,#1a1152)}
 .logo span{background:linear-gradient(180deg,#ffd0d8,#ff5a78 60%,#b81f3e);-webkit-background-clip:text;background-clip:text}
 .tagline,.hero p,.cover p,.fdesc,.mtxt small{color:#ddd6f5}
+.modal.gacha-ov{background:radial-gradient(circle at 50% 30%,#2e1c86,#0a0624 72%);z-index:45}
+.modal.gmodal{z-index:45;background:rgba(10,6,36,.82)}
+.msvg .body{fill:#5a32c8;stroke:#1a0f45}
+.msvg .mlabel{fill:#ffe08a}
