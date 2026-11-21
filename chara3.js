@@ -207,12 +207,13 @@ Object.assign(CHARA_ACH, {
 });
 
 /* ===== フラット版マスコット（背景つき・表情つき）への切り替え =====
-   図鑑の「イラスト切替」で選ぶ。この端末に保存され、選んだら全身イラストと表情が
-   flat/ のマスコット版に差し替わる（顔アイコンとリアクション道具はアニメ版のまま）。
+   既定はフラット版。図鑑の「イラスト切替」でアニメ版にも戻せる（この端末に保存）。
+   フラット版では全身・顔アイコン・表情が flat/ のマスコット版に差し替わる
+   （リアクション道具と盤上の駒アイコンは従来のまま）。
    フラット版の全身には CSS の「flatanim」でふわふわ浮くアニメーションが付く。 */
 const ASTYLE_KEY = 'jinro-art-style';
 export function artStyle() {
-  try { return localStorage.getItem(ASTYLE_KEY) === 'flat' ? 'flat' : 'anime'; } catch (e) { return 'anime'; }
+  try { return localStorage.getItem(ASTYLE_KEY) === 'anime' ? 'anime' : 'flat'; } catch (e) { return 'flat'; }
 }
 export function setArtStyle(s) {
   try { localStorage.setItem(ASTYLE_KEY, s === 'flat' ? 'flat' : 'anime'); } catch (e) { /* noop */ }
@@ -224,6 +225,7 @@ if (artStyle() === 'flat') {
     ART[k] = {
       ...ART[k],
       fullbody: `flat/${k}.webp`,
+      icon: `flat/icon/${k}.webp`,
       expr: { angry: `flat/expr/${k}-angry.webp`, surprise: `flat/expr/${k}-surprise.webp`, shy: `flat/expr/${k}-shy.webp` },
     };
     delete ART[k].fullbodyLux;
