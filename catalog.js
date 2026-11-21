@@ -19,13 +19,25 @@ export const CHARS = {
     icon: `<rect x="6" y="15" width="8" height="18" rx="2" fill="#4b5563" stroke="${D}" stroke-width="2.2"/><rect x="34" y="15" width="8" height="18" rx="2" fill="#4b5563" stroke="${D}" stroke-width="2.2"/><rect x="2" y="19" width="4" height="10" rx="1.5" fill="#6b7280" stroke="${D}" stroke-width="1.8"/><rect x="42" y="19" width="4" height="10" rx="1.5" fill="#6b7280" stroke="${D}" stroke-width="1.8"/><rect x="14" y="21" width="20" height="6" rx="1" fill="#d1d5db" stroke="${D}" stroke-width="2.2"/><path d="M19 9 L24 4 L29 9" fill="none" stroke="#f97316" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>` },
   nekomata: { nm: '猫又',     band: '#7c3aed', m: [[-1,-1],[-1,1],[1,0]],         d: '斜め前・真後ろに1マス。取られると、取った駒を道連れにする。',
     icon: `<path d="M38 36 Q47 30 43 21" fill="none" stroke="${D}" stroke-width="2.4" stroke-linecap="round"/><path d="M38 39 Q47 40 46 31" fill="none" stroke="${D}" stroke-width="2.4" stroke-linecap="round"/><path d="M8 40 Q6 22 10 9 L18 17 H28 L36 9 Q40 22 38 40 Z" fill="#c4b5fd" stroke="${D}" stroke-width="2.4" stroke-linejoin="round"/><path d="M14 25 Q17 22 20 25 M26 25 Q29 22 32 25" fill="none" stroke="${D}" stroke-width="2.2" stroke-linecap="round"/><path d="M21 31 L23 33 L25 31" fill="none" stroke="${D}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` },
-  teru:     { nm: 'てるてる', band: '#0ea5e9', m: [[-1,0],[1,-1],[1,1]],          d: '前・斜め後ろに1マス。取られると、持ち主がもう1手続けて動ける。',
+  teru:     { nm: 'てるてる', band: '#0ea5e9', m: [[-1,0],[1,-1],[1,1]],          d: '前・斜め後ろに1マス。取られるか返り討ちにされると、持ち主がもう1手続けて動ける(追加の1手は移動だけ)。',
     icon: `<path d="M14 24 Q24 31 34 24 L39 42 H9 Z" fill="#fff" stroke="${D}" stroke-width="2.4" stroke-linejoin="round"/><circle cx="24" cy="16" r="10" fill="#fff" stroke="${D}" stroke-width="2.4"/><circle cx="20" cy="15" r="1.6" fill="${D}"/><circle cx="28" cy="15" r="1.6" fill="${D}"/><path d="M20 19 Q24 22 28 19" fill="none" stroke="${D}" stroke-width="1.8" stroke-linecap="round"/><path d="M16 25 Q24 29 32 25" fill="none" stroke="#e5484d" stroke-width="2.4" stroke-linecap="round"/>` },
   fox:      { nm: '妖狐',     band: '#ea580c', m: [[-1,-1],[-1,0],[-1,1]],        d: '前3方向に1マス。人狼の返り討ちが効かず、隠れた人狼も取れる。',
     icon: `<path d="M7 7 L18 17 H30 L41 7 L39 26 L24 42 L9 26 Z" fill="#fb923c" stroke="${D}" stroke-width="2.4" stroke-linejoin="round"/><path d="M24 42 L16 30 H32 Z" fill="#fff7ed" stroke="${D}" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 23 L20 25 M34 23 L28 25" stroke="${D}" stroke-width="2.4" stroke-linecap="round"/><path d="M22 36 H26 L24 38.5 Z" fill="${D}"/><path d="M10 10 L15 15 M38 10 L33 15" stroke="#fff7ed" stroke-width="2" stroke-linecap="round"/>` },
   thief:    { nm: '怪盗',     band: '#334155', m: [[-1,-1],[-1,1],[0,-1],[0,1]],  d: '斜め前・左右に1マス。相手の駒を取ると、その駒に変身して動きを奪う。',
     icon: `<rect x="15" y="5" width="18" height="14" rx="1.5" fill="${D}"/><rect x="15" y="14" width="18" height="3" fill="#e5484d"/><rect x="8" y="18" width="32" height="4" rx="2" fill="${D}"/><path d="M5 28 Q24 21 43 28 Q39 39 30 35 L24 32 L18 35 Q9 39 5 28 Z" fill="#475569" stroke="${D}" stroke-width="2.2" stroke-linejoin="round"/><circle cx="16" cy="30" r="2.8" fill="#fff"/><circle cx="32" cy="30" r="2.8" fill="#fff"/><path d="M18 41 Q24 44 30 41" fill="none" stroke="${D}" stroke-width="2" stroke-linecap="round"/>` },
+  vampire:  { nm: '吸血鬼',   band: '#9f1239', m: [[-1,-1],[-1,1],[1,-1],[1,1]], d: '斜め4方向に1マス。1局に1回、動く代わりに隣の相手の駒を味方に変えられる(王様と人狼には効かない)。', ability: 'bite',
+    icon: `<path d="M6 40 L10 20 Q24 12 38 20 L42 40 L33 34 L24 40 L15 34 Z" fill="#4c0519" stroke="${D}" stroke-width="2.2" stroke-linejoin="round"/><circle cx="24" cy="19" r="10" fill="#f5e6ef" stroke="${D}" stroke-width="2.4"/><path d="M14 13 Q24 3 34 13 L30 12 L24 15 L18 12 Z" fill="${D}"/><path d="M19 18 L22 19 M29 18 L26 19" stroke="#e11d48" stroke-width="2.4" stroke-linecap="round"/><path d="M20 23 Q24 26 28 23" fill="none" stroke="${D}" stroke-width="1.8" stroke-linecap="round"/><path d="M21.5 24 L22.5 27 L23.5 24.5 M24.5 24.5 L25.5 27 L26.5 24" fill="#fff" stroke="${D}" stroke-width="1" stroke-linejoin="round"/>` },
+  cursed:   { nm: '呪われた者', band: '#4c1d95', m: [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]], d: '全方向に1マス。ただし隠れた人狼に返り討ちにされると、消えずに相手の駒に寝返る。',
+    icon: `<circle cx="24" cy="24" r="17" fill="#c4b5fd" stroke="${D}" stroke-width="2.4"/><path d="M24 9 L27 19 L37 19 L29 25 L32 35 L24 29 L16 35 L19 25 L11 19 L21 19 Z" fill="none" stroke="#4c1d95" stroke-width="1.6" stroke-linejoin="round" opacity=".55"/><circle cx="18" cy="22" r="3.4" fill="#fff" stroke="${D}" stroke-width="1.8"/><circle cx="30" cy="22" r="3.4" fill="#fff" stroke="${D}" stroke-width="1.8"/><circle cx="18" cy="22" r="1.2" fill="${D}"/><circle cx="30" cy="22" r="1.2" fill="${D}"/><path d="M18 31 Q24 28 30 31" fill="none" stroke="${D}" stroke-width="2" stroke-linecap="round"/><path d="M6 38 Q12 34 16 38 M32 38 Q36 34 42 38" fill="none" stroke="${D}" stroke-width="2.2" stroke-linecap="round"/>` },
 };
+
+// 曜日ごとのガチャ(1=月 … 7=日、日本時間)
+export const BANNERS = {
+  A: { name: '通常ガチャ',   days: [1, 3, 6], lr: ['fox', 'thief'],       desc: 'レジェンドレアの妖狐・怪盗が出る' },
+  B: { name: '新キャラガチャ', days: [2, 4, 5], lr: ['vampire', 'cursed'], desc: 'レジェンドレアの吸血鬼・呪われた者が出る' },
+  S: { name: 'えらべるピックアップガチャ', days: [7], lr: [],            desc: '好きなキャラを1体選んで引ける。キャラが当たる3%がすべて選んだキャラになる' },
+};
+export const bannerOfDay = dow => Object.keys(BANNERS).find(k => BANNERS[k].days.includes(dow)) || 'A';
 
 // ガチャの景品
 export const ITEMS = [
@@ -34,8 +46,10 @@ export const ITEMS = [
   { id: 'c_tough',    kind: 'char',  rarity: 'SSR', name: 'タフガイ', char: 'tough' },
   { id: 'c_nekomata', kind: 'char',  rarity: 'SSR', name: '猫又',     char: 'nekomata' },
   { id: 'c_teru',     kind: 'char',  rarity: 'SSR', name: 'てるてる', char: 'teru' },
-  { id: 'c_fox',      kind: 'char',  rarity: 'LR',  name: '妖狐',     char: 'fox' },
-  { id: 'c_thief',    kind: 'char',  rarity: 'LR',  name: '怪盗',     char: 'thief' },
+  { id: 'c_fox',      kind: 'char',  rarity: 'LR',  name: '妖狐',     char: 'fox',   banner: 'A' },
+  { id: 'c_thief',    kind: 'char',  rarity: 'LR',  name: '怪盗',     char: 'thief', banner: 'A' },
+  { id: 'c_vampire',  kind: 'char',  rarity: 'LR',  name: '吸血鬼',   char: 'vampire', banner: 'B' },
+  { id: 'c_cursed',   kind: 'char',  rarity: 'LR',  name: '呪われた者', char: 'cursed', banner: 'B' },
   // SR
   { id: 'k_pop',      kind: 'skin',  rarity: 'SR',  name: 'ポップ' },
   { id: 'k_neon',     kind: 'skin',  rarity: 'SR',  name: 'ネオン' },
@@ -104,7 +118,7 @@ export const ACHIEVEMENTS = [
   { id: 'a_win50',   name: '50勝する',             stat: 'wins',    goal: 50,  coins: 1000, tokens: 2, item: 't_win50' },
   { id: 'a_win100',  name: '100勝する',            stat: 'wins',    goal: 100, coins: 2000, tokens: 5, item: 't_win100' },
   { id: 'a_ssrall',  name: 'SSRキャラを全部集める', stat: 'ssr',     goal: 4,   coins: 1000, item: 't_ssrall' },
-  { id: 'a_charall', name: '新キャラを全部集める',   stat: 'chars',   goal: 6,   coins: 3000, tokens: 5, item: 't_charall' },
+  { id: 'a_charall', name: '新キャラを全部集める',   stat: 'chars',   goal: 8,   coins: 3000, tokens: 5, item: 't_charall' },
 ];
 
 // 最初から持っているスタンプ

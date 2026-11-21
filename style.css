@@ -157,7 +157,7 @@ details.rules summary{cursor:pointer;padding:12px 0;font-weight:800}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:700;z-index:40;max-width:calc(100% - 32px);text-align:center}
 /* modal */
 .modal{position:fixed;inset:0;z-index:30;background:rgba(10,12,22,.62);display:grid;place-items:center;padding:16px;overflow:auto}
-.mbox{background:var(--panel);border-radius:22px;padding:22px 18px;width:min(380px,100%);display:grid;gap:12px;justify-items:center;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.mbox{box-sizing:border-box;background:var(--panel);border-radius:22px;padding:22px 18px;width:min(380px,100%);display:grid;gap:12px;justify-items:center;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.35)}
 .mbox.wide{width:min(440px,100%)}
 .mbox h2{font-size:30px}
 .tag{font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--accent)}
@@ -170,7 +170,7 @@ details.rules summary{cursor:pointer;padding:12px 0;font-weight:800}
 .gbanner{border-radius:22px;padding:18px;background:radial-gradient(120% 90% at 80% 0%,#4b2a7a,#1d2233 70%);color:#fff;display:grid;gap:6px;overflow:hidden}
 .gbanner h2{font-size:30px;color:#fff}.gbanner p{margin:0;color:#d6d9e6;font-size:13px}
 .gpick{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.gp{position:relative;--cell:52px}.gp .rar{position:absolute;left:50%;bottom:-6px;transform:translateX(-50%)}
+.gp{position:relative;--cell:46px}.gp .rar{position:absolute;left:50%;bottom:-6px;transform:translateX(-50%)}
 .gbtns{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
 .gbtn{display:grid;gap:2px;justify-items:center;padding:14px 10px}
 .gbtn small{font-size:12px;display:inline-flex;align-items:center;gap:4px;opacity:.85}
@@ -217,8 +217,8 @@ details.rules summary{cursor:pointer;padding:12px 0;font-weight:800}
 .knob.turn{animation:knob 1.4s cubic-bezier(.5,0,.3,1) both}
 @keyframes knob{to{transform:rotate(720deg)}}
 .mach.shake .dcap{animation:rattle .18s ease-in-out infinite alternate}
-.mach.shake .dcap:nth-child(odd){animation-duration:.22s}
-@keyframes rattle{from{transform:translate(var(--x,0),0) rotate(-6deg)}to{transform:translate(var(--x,0),-3px) rotate(6deg)}}
+.mach.shake g:nth-child(odd)>.dcap{animation-duration:.22s}
+@keyframes rattle{from{transform:translate(0,0) rotate(-8deg)}to{transform:translate(0,-4px) rotate(8deg)}}
 .dcap{transform-box:fill-box;transform-origin:center}
 .k-SSR .msvg .body{fill:#e8a90c}.k-SSR .msvg .dome{stroke:#ffd76a;filter:drop-shadow(0 0 14px #ffd76a)}
 .k-LR .msvg .body{animation:hue 1s linear infinite}.k-LR .msvg .dome{stroke:#fff;filter:drop-shadow(0 0 18px #ff6fb0)}
@@ -308,3 +308,20 @@ details.rules summary{cursor:pointer;padding:12px 0;font-weight:800}
 .rw{display:flex !important;flex-wrap:wrap;align-items:center;gap:6px}
 .watchers{font-size:12px;font-weight:800;color:var(--mute)}
 .linkbtn{border:0;background:none;color:var(--wolf-open);font-weight:800;text-decoration:underline;padding:0 4px}
+.ldays .lday{min-width:0}
+
+/* 曜日ガチャ */
+.gbanner.b-B{background:linear-gradient(160deg,#3b0a1e,#1a1030 70%)}
+.gbanner.b-S{background:linear-gradient(160deg,#0f3a3a,#1a1030 70%)}
+.wdays{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.wday{font-size:12px;font-weight:800;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.08);color:#c9cde0;display:inline-flex;gap:5px;align-items:baseline}
+.wday small{font-size:10px;font-weight:700;opacity:.8}
+.wday.on{background:#ff9f1c;color:#1d2232}
+.gp.pickable{background:none;border:0;padding:0;cursor:pointer;border-radius:12px;outline:3px solid transparent;outline-offset:2px;transition:transform .15s}
+.gp.pickable.on{outline-color:#ff9f1c;transform:scale(1.08)}
+.gp .ownd{position:absolute;top:-6px;right:-6px;font-size:9px;font-weight:800;background:#22b573;color:#fff;border-radius:6px;padding:1px 4px}
+.pickhint{font-size:13px;color:#ffd38a;margin:6px 0 2px}
+/* 吸血鬼 */
+.bitebar{display:flex;gap:10px;align-items:center;margin:8px 0}
+.cell.bitet{background:rgba(225,29,72,.28)!important;box-shadow:inset 0 0 0 3px #e11d48}
+.cell.marked::after{content:"王か狼";position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:800;background:#e11d48;color:#fff;border-radius:5px;padding:0 4px;pointer-events:none}

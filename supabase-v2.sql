@@ -28,6 +28,7 @@ create table if not exists public.jinro_items (        -- ガチャの景品一�
   rarity text not null check (rarity in ('N','R','SR','SSR','LR'))
 );
 alter table public.jinro_items add column if not exists gacha boolean not null default true;
+alter table public.jinro_items add column if not exists banner text;   -- LRキャラが出る曜日ガチャ(A=月水土 / B=火木金)
 create table if not exists public.jinro_achievements (   -- アチーブメント(catalog.js から生成)
   id text primary key, stat text not null, goal int not null, coins int not null default 0, tokens int not null default 0, item text
 );
@@ -148,7 +149,7 @@ begin
     friend_code = coalesce(friend_code, jinro_gen_code()) where uid = p_uid;
   select * into pl from jinro_players where uid = p_uid;
   select json_build_object(
-    'coins', w.coins, 'tokens', w.tokens, 'streak', w.streak, 'welcomed', w.welcomed,
+    'coins', w.coins, 'tokens', w.tokens, 'streak', w.streak, 'banner', jinro_banner(), 'welcomed', w.welcomed,
     'login_claimable', (w.last_login is null or w.last_login < d),
     'name', pl.name, 'title', pl.title, 'avatar', pl.avatar, 'look', coalesce(pl.look, '{}'::jsonb), 'friend_code', pl.friend_code,
     'items', coalesce((select json_agg(item order by created_at) from jinro_inventory where uid = p_uid), '[]'::json),
@@ -238,13 +239,19 @@ exception when unique_violation then raise exception 'already';
 end $$;
 
 -- ========== ガチャ ==========
-create or replace function public.jinro_gacha(p_uid text, p_secret text, p_count int) returns json
+drop function if exists public.jinro_gacha(text,text,int);
+create or replace function public.jinro_banner() returns text language sql stable as $$
+  select case when extract(isodow from (now() at time zone 'Asia/Tokyo'))::int in (1,3,6) then 'A'
+              when extract(isodow from (now() at time zone 'Asia/Tokyo'))::int in (2,4,5) then 'B' else 'S' end
+$$;
+create or replace function public.jinro_gacha(p_uid text, p_secret text, p_count int, p_pick text default null) returns json
 language plpgsql security definer set search_path = public as $$
-declare cost int; c int; tk int; i int; rc int; r float; rar text; it text; got_high boolean := false;
+declare cost int; c int; tk int; i int; rc int; r float; rar text; it text; got_high boolean := false; ban text := jinro_banner();
   out_arr json[] := '{}'; fresh boolean; refund int; token int; total_refund int := 0; total_token int := 0;
 begin
   perform jinro_auth(p_uid, p_secret);
   if p_count = 1 then cost := 100; elsif p_count = 10 then cost := 900; else raise exception 'count'; end if;
+  if ban = 'S' and (p_pick is null or not exists (select 1 from jinro_items where id = p_pick and kind = 'char')) then raise exception 'pick'; end if;
   select coins into c from jinro_wallets where uid = p_uid for update;
   if c < cost then raise exception 'coins'; end if;
   update jinro_wallets set coins = coins - cost where uid = p_uid;
@@ -255,7 +262,13 @@ begin
       r := random() * 100; rar := case when r < 0.5 then 'LR' when r < 3 then 'SSR' when r < 12 then 'SR' when r < 40 then 'R' else 'N' end;
     end if;
     if rar in ('SR','SSR','LR') then got_high := true; end if;
-    select id into it from jinro_items where rarity = rar and gacha order by random() limit 1;
+    if rar in ('SSR','LR') and ban = 'S' then                       -- 日曜:キャラ枠はすべて選んだキャラ
+      it := p_pick; select rarity into rar from jinro_items where id = p_pick;
+    elsif rar = 'LR' then
+      select id into it from jinro_items where rarity = 'LR' and gacha and banner = ban order by random() limit 1;
+    else
+      select id into it from jinro_items where rarity = rar and gacha order by random() limit 1;
+    end if;
     insert into jinro_inventory(uid, item) values (p_uid, it) on conflict do nothing;
     get diagnostics rc = row_count; fresh := rc > 0;
     -- 被ったら:N 1・R 5・SR 10コイン。キャラ(SSR/LR)は特別コイン(SSR 1枚・LR 2枚)
@@ -265,8 +278,9 @@ begin
     out_arr := out_arr || json_build_object('item', it, 'rarity', rar, 'dup', not fresh, 'refund', refund, 'token', token);
   end loop;
   update jinro_wallets set coins = coins + total_refund, tokens = tokens + total_token where uid = p_uid returning coins, tokens into c, tk;
-  return json_build_object('coins', c, 'tokens', tk, 'results', array_to_json(out_arr));
+  return json_build_object('coins', c, 'tokens', tk, 'banner', ban, 'results', array_to_json(out_arr));
 end $$;
+grant execute on function public.jinro_gacha(text,text,int,text) to anon, authenticated;
 
 -- ========== 着せ替え・称号を付ける ==========
 create or replace function public.jinro_equip(p_uid text, p_secret text, p_slot text, p_item text) returns json
@@ -394,73 +408,75 @@ grant execute on function public.jinro_set_avatar(text,text,text,int) to anon, a
 
 -- 関数を誰でも呼べるようにする(中で合言葉を確認する)
 grant execute on function public.jinro_set_name(text,text,text), public.jinro_state(text,text), public.jinro_claim_login(text,text),
-  public.jinro_claim_mission(text,text,text), public.jinro_gacha(text,text,int), public.jinro_equip(text,text,text,text),
+  public.jinro_claim_mission(text,text,text), public.jinro_equip(text,text,text,text),
   public.jinro_record_result(text,text,text,int), public.jinro_send_stamp(text,text,text,text),
   public.jinro_friend_request(text,text,text), public.jinro_friend_respond(text,text,text,boolean),
   public.jinro_invite(text,text,text,text) to anon, authenticated;
 revoke execute on function public.jinro_auth(text,text), public.jinro_gen_code() from anon, authenticated, public;
 
 -- ========== ガチャの景品一覧とアチーブメント(catalog.js から生成) ==========
-insert into public.jinro_items(id, kind, rarity, gacha) values
-  ('c_medium', 'char', 'SSR', true),
-  ('c_tough', 'char', 'SSR', true),
-  ('c_nekomata', 'char', 'SSR', true),
-  ('c_teru', 'char', 'SSR', true),
-  ('c_fox', 'char', 'LR', true),
-  ('c_thief', 'char', 'LR', true),
-  ('k_pop', 'skin', 'SR', true),
-  ('k_neon', 'skin', 'SR', true),
-  ('k_gold', 'skin', 'SR', true),
-  ('f_gold', 'frame', 'SR', true),
-  ('f_purple', 'frame', 'SR', true),
-  ('f_pink', 'frame', 'SR', true),
-  ('w_gold', 'wolf', 'SR', true),
-  ('w_blue', 'wolf', 'SR', true),
-  ('b_moon', 'back', 'SR', true),
-  ('b_star', 'back', 'SR', true),
-  ('b_paw', 'back', 'SR', true),
-  ('t_legend', 'title', 'SR', true),
-  ('t_lord', 'title', 'SR', true),
-  ('t_unbeaten', 'title', 'SR', true),
-  ('s_all', 'stamp', 'SR', true),
-  ('s_night', 'stamp', 'SR', true),
-  ('k_mint', 'skin', 'R', true),
-  ('k_sakura', 'skin', 'R', true),
-  ('k_sky', 'skin', 'R', true),
-  ('k_night', 'skin', 'R', true),
-  ('f_red', 'frame', 'R', true),
-  ('f_blue', 'frame', 'R', true),
-  ('f_green', 'frame', 'R', true),
-  ('w_black', 'wolf', 'R', true),
-  ('w_white', 'wolf', 'R', true),
-  ('b_check', 'back', 'R', true),
-  ('t_hunter', 'title', 'R', true),
-  ('t_guard', 'title', 'R', true),
-  ('t_doubt', 'title', 'R', true),
-  ('t_counter', 'title', 'R', true),
-  ('t_bluff', 'title', 'R', true),
-  ('s_read', 'stamp', 'R', true),
-  ('s_trap', 'stamp', 'R', true),
-  ('s_give', 'stamp', 'R', true),
-  ('s_fast', 'stamp', 'R', true),
-  ('t_novice', 'title', 'N', true),
-  ('t_fan', 'title', 'N', true),
-  ('t_owl', 'title', 'N', true),
-  ('t_rookie', 'title', 'N', true),
-  ('s_wolf', 'stamp', 'N', true),
-  ('s_no', 'stamp', 'N', true),
-  ('s_more', 'stamp', 'N', true),
-  ('s_fufu', 'stamp', 'N', true),
-  ('s_gg', 'stamp', 'N', true),
-  ('s_oops', 'stamp', 'N', true),
-  ('t_win10', 'title', 'R', false),
-  ('t_win25', 'title', 'SR', false),
-  ('t_win50', 'title', 'SSR', false),
-  ('t_win100', 'title', 'LR', false),
-  ('t_ssrall', 'title', 'SSR', false),
-  ('t_charall', 'title', 'LR', false)
-on conflict (id) do update set kind = excluded.kind, rarity = excluded.rarity, gacha = excluded.gacha;
-delete from public.jinro_items where id not in ('c_medium', 'c_tough', 'c_nekomata', 'c_teru', 'c_fox', 'c_thief', 'k_pop', 'k_neon', 'k_gold', 'f_gold', 'f_purple', 'f_pink', 'w_gold', 'w_blue', 'b_moon', 'b_star', 'b_paw', 't_legend', 't_lord', 't_unbeaten', 's_all', 's_night', 'k_mint', 'k_sakura', 'k_sky', 'k_night', 'f_red', 'f_blue', 'f_green', 'w_black', 'w_white', 'b_check', 't_hunter', 't_guard', 't_doubt', 't_counter', 't_bluff', 's_read', 's_trap', 's_give', 's_fast', 't_novice', 't_fan', 't_owl', 't_rookie', 's_wolf', 's_no', 's_more', 's_fufu', 's_gg', 's_oops', 't_win10', 't_win25', 't_win50', 't_win100', 't_ssrall', 't_charall');
+insert into public.jinro_items(id, kind, rarity, gacha, banner) values
+  ('c_medium', 'char', 'SSR', true, null),
+  ('c_tough', 'char', 'SSR', true, null),
+  ('c_nekomata', 'char', 'SSR', true, null),
+  ('c_teru', 'char', 'SSR', true, null),
+  ('c_fox', 'char', 'LR', true, 'A'),
+  ('c_thief', 'char', 'LR', true, 'A'),
+  ('c_vampire', 'char', 'LR', true, 'B'),
+  ('c_cursed', 'char', 'LR', true, 'B'),
+  ('k_pop', 'skin', 'SR', true, null),
+  ('k_neon', 'skin', 'SR', true, null),
+  ('k_gold', 'skin', 'SR', true, null),
+  ('f_gold', 'frame', 'SR', true, null),
+  ('f_purple', 'frame', 'SR', true, null),
+  ('f_pink', 'frame', 'SR', true, null),
+  ('w_gold', 'wolf', 'SR', true, null),
+  ('w_blue', 'wolf', 'SR', true, null),
+  ('b_moon', 'back', 'SR', true, null),
+  ('b_star', 'back', 'SR', true, null),
+  ('b_paw', 'back', 'SR', true, null),
+  ('t_legend', 'title', 'SR', true, null),
+  ('t_lord', 'title', 'SR', true, null),
+  ('t_unbeaten', 'title', 'SR', true, null),
+  ('s_all', 'stamp', 'SR', true, null),
+  ('s_night', 'stamp', 'SR', true, null),
+  ('k_mint', 'skin', 'R', true, null),
+  ('k_sakura', 'skin', 'R', true, null),
+  ('k_sky', 'skin', 'R', true, null),
+  ('k_night', 'skin', 'R', true, null),
+  ('f_red', 'frame', 'R', true, null),
+  ('f_blue', 'frame', 'R', true, null),
+  ('f_green', 'frame', 'R', true, null),
+  ('w_black', 'wolf', 'R', true, null),
+  ('w_white', 'wolf', 'R', true, null),
+  ('b_check', 'back', 'R', true, null),
+  ('t_hunter', 'title', 'R', true, null),
+  ('t_guard', 'title', 'R', true, null),
+  ('t_doubt', 'title', 'R', true, null),
+  ('t_counter', 'title', 'R', true, null),
+  ('t_bluff', 'title', 'R', true, null),
+  ('s_read', 'stamp', 'R', true, null),
+  ('s_trap', 'stamp', 'R', true, null),
+  ('s_give', 'stamp', 'R', true, null),
+  ('s_fast', 'stamp', 'R', true, null),
+  ('t_novice', 'title', 'N', true, null),
+  ('t_fan', 'title', 'N', true, null),
+  ('t_owl', 'title', 'N', true, null),
+  ('t_rookie', 'title', 'N', true, null),
+  ('s_wolf', 'stamp', 'N', true, null),
+  ('s_no', 'stamp', 'N', true, null),
+  ('s_more', 'stamp', 'N', true, null),
+  ('s_fufu', 'stamp', 'N', true, null),
+  ('s_gg', 'stamp', 'N', true, null),
+  ('s_oops', 'stamp', 'N', true, null),
+  ('t_win10', 'title', 'R', false, null),
+  ('t_win25', 'title', 'SR', false, null),
+  ('t_win50', 'title', 'SSR', false, null),
+  ('t_win100', 'title', 'LR', false, null),
+  ('t_ssrall', 'title', 'SSR', false, null),
+  ('t_charall', 'title', 'LR', false, null)
+on conflict (id) do update set kind = excluded.kind, rarity = excluded.rarity, gacha = excluded.gacha, banner = excluded.banner;
+delete from public.jinro_items where id not in ('c_medium', 'c_tough', 'c_nekomata', 'c_teru', 'c_fox', 'c_thief', 'c_vampire', 'c_cursed', 'k_pop', 'k_neon', 'k_gold', 'f_gold', 'f_purple', 'f_pink', 'w_gold', 'w_blue', 'b_moon', 'b_star', 'b_paw', 't_legend', 't_lord', 't_unbeaten', 's_all', 's_night', 'k_mint', 'k_sakura', 'k_sky', 'k_night', 'f_red', 'f_blue', 'f_green', 'w_black', 'w_white', 'b_check', 't_hunter', 't_guard', 't_doubt', 't_counter', 't_bluff', 's_read', 's_trap', 's_give', 's_fast', 't_novice', 't_fan', 't_owl', 't_rookie', 's_wolf', 's_no', 's_more', 's_fufu', 's_gg', 's_oops', 't_win10', 't_win25', 't_win50', 't_win100', 't_ssrall', 't_charall');
 insert into public.jinro_achievements(id, stat, goal, coins, tokens, item) values
   ('a_first', 'wins', 1, 100, 0, null),
   ('a_games10', 'games', 10, 200, 0, null),
@@ -470,5 +486,5 @@ insert into public.jinro_achievements(id, stat, goal, coins, tokens, item) value
   ('a_win50', 'wins', 50, 1000, 2, 't_win50'),
   ('a_win100', 'wins', 100, 2000, 5, 't_win100'),
   ('a_ssrall', 'ssr', 4, 1000, 0, 't_ssrall'),
-  ('a_charall', 'chars', 6, 3000, 5, 't_charall')
+  ('a_charall', 'chars', 8, 3000, 5, 't_charall')
 on conflict (id) do update set stat = excluded.stat, goal = excluded.goal, coins = excluded.coins, tokens = excluded.tokens, item = excluded.item;

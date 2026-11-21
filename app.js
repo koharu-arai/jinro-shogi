@@ -1,5 +1,5 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { CHARS, ITEMS, ITEM, ACH_ITEMS, ACHIEVEMENTS, DEFAULT_STAMPS, MISSIONS, RATES, REFUND, TOKEN_REFUND, TOKEN_COST, COST, RARITY_LABEL, RARITY_ORDER, KIND_LABEL, LOGIN } from "./catalog.js";
+import { CHARS, BANNERS, bannerOfDay, ITEMS, ITEM, ACH_ITEMS, ACHIEVEMENTS, DEFAULT_STAMPS, MISSIONS, RATES, REFUND, TOKEN_REFUND, TOKEN_COST, COST, RARITY_LABEL, RARITY_ORDER, KIND_LABEL, LOGIN } from "./catalog.js";
 
 /* ===== rules data ===== */
 const BASE = ['king','wolf','villager','seer','hunter','knight'];
@@ -68,6 +68,7 @@ function targets(G,r,c){
     const Q=G.board[nr][nc];
     if(Q&&Q.owner===P.owner)continue;
     if(Q&&P.type==='wolf'&&!P.revealed)continue;
+    if(Q&&G.noCap===P.owner)continue;
     out.push([nr,nc]);
   }
   return out;
@@ -76,7 +77,8 @@ function targets(G,r,c){
 const baseType=P=>P.orig||(P.promoted?'villager':P.type);
 const backRow=owner=>owner===0?0:4;
 // 次の手番。てるてるの力で相手が1回休みになることがある
-function nextTurn(G){let n=1-G.turn;if(G.skip===n){G.skip=null;n=G.turn}return n}
+// 追加の1手(G.noCap)は移動だけ。駒を取ったり噛みついたりはできない
+function nextTurn(G){let n=1-G.turn;if(G.skip===n){G.skip=null;n=G.turn;G.noCap=n}return n}
 function attacked(G,r,c,by){
   for(let y=0;y<5;y++)for(let x=0;x<3;x++){const P=G.board[y][x];if(P&&P.owner===by&&targets(G,y,x).some(([a,b])=>a===r&&b===c))return true}
   return false;
@@ -91,6 +93,7 @@ function afterMove(G,A,nr,nc,out){
   return out;
 }
 function applyMove(G,r,c,nr,nc){
+  G.noCap=null;
   const B=G.board,A=B[r][c],Q=B[nr][nc],me=A.owner,op=1-me,R=rulesOf(G);
   if(!Q){B[nr][nc]=A;B[r][c]=null;G.last={from:[r,c],to:[nr,nc],kind:'move'};return afterMove(G,A,nr,nc,{res:'駒を動かしました。',note:'相手が駒を動かしました。'})}
   const an=T[A.type].nm,qn=T[Q.type].nm;
@@ -99,6 +102,7 @@ function applyMove(G,r,c,nr,nc){
     B[r][c]=null;Q.revealed=true;G.last={from:[r,c],to:[nr,nc],kind:'counter'};
     let res=`返り討ち！ その駒は隠れた人狼でした。あなたの${an}は`,note=`あなたの人狼が相手の${an}を返り討ちにしました。人狼の正体が相手に知られました。`;
     if(A.type==='nekomata'){B[nr][nc]=null;res+='消えましたが、猫又の道連れで人狼も消えました。';note+=' ただし猫又の道連れで、人狼も消えました。'}
+    else if(A.type==='cursed'){B[r][c]=A;A.owner=op;A.shown=true;res+='消えずに、呪いで相手の駒に寝返りました。';note+=' 相手の呪われた者が、あなたの駒に寝返りました。'}
     else{if(R.drops)G.hands[op].push(baseType(A));res+=R.drops?'相手の持ち駒になります。':'盤から取り除かれました。'}
     if(A.type==='teru'){G.skip=op;res+=' てるてるの力で、もう1手続けて動けます。';note+=' てるてるの力で、相手がもう1手続けて動きます。'}
     if(A.type==='king'){G.winner=op;G.reason='王様が隠れた人狼に返り討ちにされました'}
@@ -124,7 +128,26 @@ function applyMove(G,r,c,nr,nc){
   if(B[nr][nc]===A)return afterMove(G,A,nr,nc,{res,note,alert:true});
   return{res,note,alert:true};
 }
+// 吸血鬼の噛みつき:隣(8方向)の相手の駒を味方に変える。1局に1回
+const ADJ=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const canBite=P=>P&&P.type==='vampire'&&!P.bit;
+function biteTargets(G,r,c){
+  const P=G.board[r][c];if(!canBite(P)||G.noCap===P.owner)return[];
+  return ADJ.map(([y,x])=>[r+y,c+x]).filter(([y,x])=>y>=0&&y<5&&x>=0&&x<3&&G.board[y][x]&&G.board[y][x].owner!==P.owner);
+}
+function applyBite(G,r,c,nr,nc){
+  G.noCap=null;
+  const A=G.board[r][c],Q=G.board[nr][nc];
+  A.bit=true;A.shown=true;G.last={from:[r,c],to:[nr,nc],kind:'bite'};
+  if(Q.type==='king'||Q.type==='wolf'){
+    Q.marked=true;
+    return{res:'噛みつけなかった！ その駒は王様か人狼です(印が付きました)。吸血鬼の力は使い切りました。',note:'相手の吸血鬼が噛みつこうとしましたが、失敗しました。噛まれた駒が王様か人狼だと知られました。',alert:true,bad:true};
+  }
+  const qn=T[Q.type].nm;Q.owner=A.owner;Q.shown=true;
+  return{res:`噛みついた！ 相手の${qn}があなたの駒になりました。`,note:`相手の吸血鬼に噛まれ、あなたの${qn}が相手の駒になりました。`,alert:true};
+}
 function applyDrop(G,i,r,c){
+  G.noCap=null;
   const me=G.turn,t=G.hands[me].splice(i,1)[0];
   G.board[r][c]={owner:me,type:t,revealed:false};G.last={to:[r,c],kind:'drop'};
   return{res:`${T[t].nm}を打ちました。相手からは正体が見えません。`,note:'相手が持ち駒を打ちました。'};
@@ -132,10 +155,18 @@ function applyDrop(G,i,r,c){
 function decideTap(G,v,sel,r,c){
   const P=G.board[r][c];
   if(sel){
+    if(sel.bite){if(biteTargets(G,sel.r,sel.c).some(([x,y])=>x===r&&y===c))return{act:'bite',from:[sel.r,sel.c]};return{act:'sel',sel:null}}
     if(sel.hand!=null){if(!P)return{act:'drop',i:sel.hand}}
     else if(targets(G,sel.r,sel.c).some(([x,y])=>x===r&&y===c))return{act:'move',from:[sel.r,sel.c]};
   }
   return{act:'sel',sel:P&&P.owner===v&&!(sel&&sel.r===r&&sel.c===c)?{r,c}:null};
+}
+// 吸血鬼を選んでいるときの「噛みつく」ボタン
+function biteBar(G,sel){
+  if(!sel||sel.hand!=null||sel.r==null)return'';
+  const P=G.board[sel.r][sel.c];if(!canBite(P))return'';
+  const n=biteTargets(G,sel.r,sel.c).length;
+  return`<div class="bitebar"><button class="btn ${sel.bite?'danger':'orange'} small" data-act="bite" ${n?'':'disabled'}>${sel.bite?'噛みつきをやめる':'🦇 噛みつく(1局に1回)'}</button><span class="muted">${n?(sel.bite?'噛みつく相手の駒をタップ':'隣の相手の駒を味方に変える'):'隣に相手の駒がいません'}</span></div>`;
 }
 function shuffle(ar){for(let i=ar.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ar[i],ar[j]]=[ar[j],ar[i]]}}
 function shuffleDeck(ar){shuffle(ar);return ar}
@@ -179,6 +210,7 @@ function boardHTML(G,v,{sel=null,interactive=false,reveal=false,looks=[{},{}],wa
   const tg=new Set();
   if(interactive&&sel){
     if(sel.hand!=null){for(let r=0;r<5;r++)for(let c=0;c<3;c++)if(!G.board[r][c])tg.add(r+','+c)}
+    else if(sel.bite)biteTargets(G,sel.r,sel.c).forEach(([a,b])=>tg.add(a+','+b));
     else targets(G,sel.r,sel.c).forEach(([a,b])=>tg.add(a+','+b));
   }
   let h='<div class="boardwrap"><div class="board" aria-label="盤面">';
@@ -186,10 +218,11 @@ function boardHTML(G,v,{sel=null,interactive=false,reveal=false,looks=[{},{}],wa
     const[r,c]=toAbs(v,dr,dc),P=G.board[r][c],L=G.last;let cls='cell';
     if(L&&!reveal){
       const isTo=L.to[0]===r&&L.to[1]===c,isFrom=L.from&&L.from[0]===r&&L.from[1]===c;
-      if(isTo||isFrom)cls+=L.kind==='counter'?' counter':' last';
+      if(isTo||isFrom)cls+=L.kind==='counter'||L.kind==='bite'?' counter':' last';
     }
     if(interactive&&sel&&sel.hand==null&&sel.r===r&&sel.c===c)cls+=' sel';
-    if(tg.has(r+','+c))cls+=' tgt'+(P?' hasp':'');
+    if(tg.has(r+','+c))cls+=' tgt'+(P?' hasp':'')+(sel.bite?' bitet':'');
+    if(P&&P.marked&&P.owner!==v&&!reveal)cls+=' marked';
     let inner='';
     if(P){
       const mine=!watch&&P.owner===v,vis=mine||reveal||P.shown||(P.type==='wolf'&&P.revealed);
@@ -288,7 +321,7 @@ function avatar(av,cls=''){av=av||{c:'wolf',bg:0};const c=T[av.c]?av.c:'wolf';re
 function myLookFor(av){return av&&av.wolf?{wolf:av.wolf}:null}
 function titleTag(id){const it=id&&ITEM[id];return it?`<span class="ttl r-${it.rarity}">${esc(it.name)}</span>`:''}
 
-const ERR={tokens:'特別コインが足りません。',exchange:'そのキャラとは交換できません。',auth:'この端末の合言葉が一致しません。前に使っていた端末で開いてください。',already:'もう受け取り済みです。',coins:'コインが足りません。',notyet:'まだ達成していません。',notfound:'そのフレンドコードの人が見つかりません。',self:'自分のコードです。',notfriend:'フレンドになってから誘えます。',slow:'少し待ってから送ってください。',notowned:'持っていない景品です。',name:'名前は1〜12文字で入力してください。'};
+const ERR={tokens:'特別コインが足りません。',exchange:'そのキャラとは交換できません。',auth:'この端末の合言葉が一致しません。前に使っていた端末で開いてください。',already:'もう受け取り済みです。',coins:'コインが足りません。',notyet:'まだ達成していません。',notfound:'そのフレンドコードの人が見つかりません。',self:'自分のコードです。',notfriend:'フレンドになってから誘えます。',slow:'少し待ってから送ってください。',notowned:'持っていない景品です。',name:'名前は1〜12文字で入力してください。',pick:'日曜日はピックアップするキャラを選んでから引いてください。'};
 async function rpc(fn,args={}){
   if(!sb)throw new Error('offline');
   const {data,error}=await sb.rpc(fn,{p_uid:O.uid,p_secret:getSecret(),...args});
@@ -361,6 +394,7 @@ function renderLocal(){
     <div class="side"><span class="who">${NAME[op]}</span>${rulesOf(G).drops?`<span class="badge">持ち駒 ${G.hands[op].length}枚</span>`:''}</div>
     ${boardHTML(G,v,{sel:L.sel,interactive:play,looks:localLooks()})}
     <div class="side"><span class="who">${NAME[v]}</span><span class="badge turn">あなたの番</span></div>
+    ${play?biteBar(G,L.sel):''}
     ${handHTML(G,v,L.sel,play,localLooks()[v])}
     ${play&&L.notice?`<div class="status${L.noticeAlert?' alert':''}">${esc(L.notice)}</div>`:''}
     ${play?`<div class="row"><span class="spacer"></span><button class="btn ${L.resignArm?'danger':'ghost'} small" data-act="resign">${L.resignArm?'もう一度押すと投了':'投了'}</button></div>${rulesHTML()}`
@@ -378,12 +412,13 @@ function localAct(a,el){
   else if(a==='shuffle'){shuffle(L.setup[L.setupP]);L.sel=null}
   else if(a==='confirm'){L.sel=null;L.msg='';if(L.setupP===0){L.setupP=1;L.cover={p:1,next:'setup'}}else{L.G=newGame(L.setup,L.rules);L.notice='対局開始。先手から指します。';L.noticeAlert=false;L.cover={p:0,next:'play'}}L.phase='cover'}
   else if(a==='hand'){const i=+el.dataset.i;L.sel=L.sel&&L.sel.hand===i?null:{hand:i}}
+  else if(a==='bite'){if(L.sel)L.sel={r:L.sel.r,c:L.sel.c,bite:!L.sel.bite}}
   else if(a==='cell'&&L.phase==='play'){
     const G=L.G,[r,c]=toAbs(G.turn,+el.dataset.r,+el.dataset.c),d=decideTap(G,G.turn,L.sel,r,c);
     if(d.act==='sel')L.sel=d.sel;
-    else{const out=d.act==='drop'?applyDrop(G,d.i,r,c):applyMove(G,d.from[0],d.from[1],r,c);if(G.winner==null){const save=G.skip;const n=nextTurn(G);G.skip=save;out.same=n===G.turn}localEnd(out)}
+    else{const out=d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='bite'?applyBite(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c);if(G.winner==null){const save=G.skip,nc=G.noCap;const n=nextTurn(G);G.skip=save;G.noCap=nc;out.same=n===G.turn}localEnd(out)}
   }
-  else if(a==='pass'){const G=L.G;const n=nextTurn(G);const same=n===G.turn;G.turn=n;L.notice=same?'てるてるの力で、もう1手続けて指せます。':L.out.note;L.noticeAlert=!!L.out.alert;if(same){L.phase='play'}else{L.cover={p:G.turn,next:'play'};L.phase='cover'}}
+  else if(a==='pass'){const G=L.G;const n=nextTurn(G);const same=n===G.turn;G.turn=n;L.notice=same?'てるてるの力で、もう1手続けて指せます(移動だけ。駒は取れません)。':L.out.note;L.noticeAlert=!!L.out.alert;if(same){L.phase='play'}else{L.cover={p:G.turn,next:'play'};L.phase='cover'}}
   else if(a==='resign'){if(L.resignArm){L.G.winner=1-L.G.turn;L.G.reason=`${NAME[L.G.turn]}が投了しました`;L.phase='over'}else L.resignArm=true}
   else if(a==='localAgain')localNew();
 }
@@ -506,7 +541,7 @@ async function commit(apply){
     if(g.winner!=null)g.phase='over';
     else{
       const n=nextTurn(g);
-      if(n===t){g.note={for:t,text:out.note+' てるてるの力で、もう1手続けて指せます。',alert:!!out.alert};g.note.extra=true}
+      if(n===t){g.note={for:t,text:out.note+' てるてるの力で、もう1手続けて指せます(移動だけ。駒は取れません)。',alert:!!out.alert};g.note.extra=true}
       else g.note={for:n,text:out.note,alert:!!out.alert};
       g.turn=n;
     }
@@ -602,6 +637,7 @@ function renderOnline(){
     ${playerRow(opUid,'相手',op,`${rulesOf(g).drops?`<span class="badge">持ち駒 ${g.hands[op].length}枚</span>`:''}${g.turn===op?'<span class="badge turn">考え中</span>':''}`)}
     ${boardHTML(g,me,{sel:O.sel,interactive:myTurn,looks})}
     ${playerRow(myUid,'あなた',me,g.turn===me?'<span class="badge turn">あなたの番</span>':'')}
+    ${myTurn?biteBar(g,O.sel):''}
     ${handHTML(g,me,O.sel,myTurn,myLook())}
     ${status}${err}
     ${stampBar()}
@@ -647,8 +683,9 @@ async function onlineAct(a,el){
     const g=O.game;if(!g||g.phase!=='play'||g.turn!==O.seat||O.busy)return;
     const[r,c]=toAbs(O.seat,+el.dataset.r,+el.dataset.c),d=decideTap(g,O.seat,O.sel,r,c);
     if(d.act==='sel')O.sel=d.sel;
-    else return commit(G=>d.act==='drop'?applyDrop(G,d.i,r,c):applyMove(G,d.from[0],d.from[1],r,c));
+    else return commit(G=>d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='bite'?applyBite(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c));
   }
+  else if(a==='bite'){if(O.sel)O.sel={r:O.sel.r,c:O.sel.c,bite:!O.sel.bite}}
   else if(a==='oresign'){if(O.resignArm){O.resignArm=false;return writeEnd(1-O.seat,`${NAME[O.seat]}が投了しました`)}O.resignArm=true}
   else if(a==='rematch'){
     O.busy=true;render();
@@ -784,24 +821,34 @@ function itemCard(it,o={}){
     <b class="iname">${o.locked?'？？？':esc(it.name)}</b><small>${KIND_LABEL[it.kind]}</small>${o.extra||''}</div>`;
 }
 const CAP_COLOR={N:'#e9ecf4',R:'#3f86f0',SR:'#a855f7',SSR:'#f5b82e',LR:'#ff6f93'};
+// 今日のガチャ(サーバーの日本時間を優先)
+const WD='日月火水木金土';
+function todayBanner(){if(M.st?.banner)return M.st.banner;const d=new Date(Date.now()+9*3600e3).getUTCDay();return bannerOfDay(d||7)}
+const bannerItems=k=>ITEMS.filter(i=>i.kind==='char'&&(i.rarity!=='LR'||k==='S'||i.banner===k));
 function renderGacha(){
-  const c=M.st?.coins??0,busy=!!M.anim,tk=M.st?.tokens??0;
-  const pick=ITEMS.filter(i=>i.kind==='char').sort((a,b)=>RARITY_ORDER.indexOf(a.rarity)-RARITY_ORDER.indexOf(b.rarity));
+  const c=M.st?.coins??0,busy=!!M.anim,tk=M.st?.tokens??0,bk=todayBanner(),BN=BANNERS[bk],sun=bk==='S';
+  const pick=bannerItems(bk).sort((a,b)=>RARITY_ORDER.indexOf(a.rarity)-RARITY_ORDER.indexOf(b.rarity));
   const ssr=ITEMS.filter(i=>i.kind==='char'&&i.rarity==='SSR'),own=owned();
+  const days=Object.entries(BANNERS).map(([k,b])=>`<span class="wday${k===bk?' on':''}">${b.days.map(d=>WD[d%7]).join('')}<small>${k==='A'?'通常':k==='B'?'新キャラ':'えらべる'}</small></span>`).join('');
+  const needPick=sun&&!M.pick;
   return`${backBar('ガチャ')}
-    <section class="gbanner"><span class="tag">新キャラ登場</span><h2>人狼将棋ガチャ</h2><p>レジェンドレアの妖狐・怪盗、超激レアの4体をねらえ！</p>
-      <div class="gpick">${pick.map(i=>`<div class="gp">${tile(i.char)}<span class="rar r-${i.rarity}">${i.rarity}</span></div>`).join('')}</div></section>
+    <section class="gbanner b-${bk}"><span class="tag">${sun?'日曜限定':'本日のガチャ'}</span><h2>${esc(BN.name)}</h2><p>${esc(BN.desc)}${sun?'。':'！'}</p>
+      ${sun?`<p class="pickhint">${M.pick?`ピックアップ中:<b>${esc(ITEM[M.pick].name)}</b>(タップで変更)`:'↓ ピックアップするキャラをタップして選んでください'}</p>`:''}
+      <div class="gpick">${pick.map(i=>sun?`<button class="gp pickable${M.pick===i.id?' on':''}" data-act="gpick" data-id="${i.id}" aria-pressed="${M.pick===i.id}">${tile(i.char)}<span class="rar r-${i.rarity}">${i.rarity}</span>${own.has(i.id)?'<span class="ownd">所持</span>':''}</button>`:`<div class="gp">${tile(i.char)}<span class="rar r-${i.rarity}">${i.rarity}</span></div>`).join('')}</div>
+      <div class="wdays" aria-label="曜日ごとのガチャ">${days}</div></section>
     <div class="gbtns">
-      <button class="btn ghost gbtn" data-act="pull" data-n="1" ${busy||c<COST.single?'disabled':''}><b>1回引く</b><small>${coinIcon}${COST.single}</small></button>
-      <button class="btn orange gbtn" data-act="pull" data-n="10" ${busy||c<COST.ten?'disabled':''}><b>10連ガチャ</b><small>${coinIcon}${COST.ten}・SR以上1つ確定</small></button>
+      <button class="btn ghost gbtn" data-act="pull" data-n="1" ${busy||c<COST.single||needPick?'disabled':''}><b>1回引く</b><small>${coinIcon}${COST.single}</small></button>
+      <button class="btn orange gbtn" data-act="pull" data-n="10" ${busy||c<COST.ten||needPick?'disabled':''}><b>10連ガチャ</b><small>${coinIcon}${COST.ten}・SR以上1つ確定</small></button>
     </div>
+    ${needPick?'<p class="muted">日曜日はキャラを1体選んでから引けます。</p>':''}
     ${c<COST.single?`<p class="muted">コインはログインボーナスとデイリーミッションで貯まります。</p>`:''}
     ${M.err?`<p class="err">${esc(M.err)}</p>`:''}
     <div class="card tokens"><div class="row"><span class="tkn" aria-hidden="true">★</span><b>特別コイン ${tk}/${TOKEN_COST}枚</b></div>
       <p class="muted">持っているキャラが出ると特別コインがもらえます(SSR ${TOKEN_REFUND.SSR}枚・LR ${TOKEN_REFUND.LR}枚)。${TOKEN_COST}枚で、好きなSSRキャラ1体と交換できます。</p>
       <div class="exrow">${ssr.map(i=>{const has=own.has(i.id);return`<div class="ex">${tile(i.char)}<b>${esc(i.name)}</b><button class="btn ${has?'ghost':'orange'} small" data-act="exchange" data-id="${i.id}" ${has||tk<TOKEN_COST?'disabled':''}>${has?'所持':'交換'}</button></div>`}).join('')}</div></div>
     <details class="card rates"><summary><b>出る確率と景品</b></summary>
-      ${RARITY_ORDER.map(r=>{const list=ITEMS.filter(i=>i.rarity===r);return`<div class="rate"><div class="row"><span class="rar r-${r}">${r}</span><b>${RARITY_LABEL[r]}</b><span class="spacer"></span><b>${RATES[r]}%</b></div><p class="muted">${list.map(i=>esc(i.name)).join('・')}</p></div>`}).join('')}
+      ${sun?`<p class="muted">日曜日は、LR・SSRが出たときに必ず選んだキャラになります(合わせて${RATES.LR+RATES.SSR}%)。</p>`:''}
+      ${RARITY_ORDER.map(r=>{const list=ITEMS.filter(i=>i.rarity===r&&i.gacha!==false&&(sun&&(r==='LR'||r==='SSR')?i.id===M.pick:(r!=='LR'||i.banner===bk)));return`<div class="rate"><div class="row"><span class="rar r-${r}">${r}</span><b>${RARITY_LABEL[r]}</b><span class="spacer"></span><b>${RATES[r]}%</b></div><p class="muted">${list.map(i=>esc(i.name)).join('・')}</p></div>`}).join('')}
       <p class="muted">持っている景品が出たときは、N ${REFUND.N}・R ${REFUND.R}・SR ${REFUND.SR}コインが戻ります。キャラ(SSR・LR)は特別コインになります。</p>
     </details>`;
 }
@@ -810,7 +857,7 @@ function machineSVG(A){
   const deco=[[70,105,'#3f86f0'],[100,112,'#ff9f1c'],[130,104,'#a855f7'],[84,128,'#22b573'],[116,128,'#ff6f93'],[58,126,'#f5b82e'],[142,126,'#3f86f0'],[100,88,'#e5484d'],[78,82,'#16a36b'],[123,84,'#f5b82e']];
   return`<svg viewBox="0 0 200 270" class="msvg" aria-hidden="true">
     <circle cx="100" cy="92" r="72" class="dome"/>
-    ${deco.map(([x,y,c])=>`<g class="dcap" transform="translate(${x} ${y})"><circle r="13" fill="#fff" stroke="#1d2232" stroke-width="2.5"/><path d="M-13 0 A13 13 0 0 1 13 0 Z" fill="${c}" stroke="#1d2232" stroke-width="2.5"/></g>`).join('')}
+    ${deco.map(([x,y,c])=>`<g transform="translate(${x} ${y})"><g class="dcap"><circle r="13" fill="#fff" stroke="#1d2232" stroke-width="2.5"/><path d="M-13 0 A13 13 0 0 1 13 0 Z" fill="${c}" stroke="#1d2232" stroke-width="2.5"/></g></g>`).join('')}
     <path d="M52 50 Q70 30 96 26" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".7"/>
     <rect x="30" y="150" width="140" height="108" rx="16" class="body"/>
     <rect x="44" y="160" width="112" height="22" rx="8" fill="#1d2232"/>
@@ -846,7 +893,7 @@ async function pull(n){
   M.err='';const t0=Date.now();
   M.anim={phase:'turn',n,results:null};render();
   let r;
-  try{r=await rpc('jinro_gacha',{p_count:n})}
+  try{r=await rpc('jinro_gacha',{p_count:n,p_pick:todayBanner()==='S'?M.pick:null})}
   catch(e){M.anim=null;M.err=e.message;render();return}
   M.st.coins=r.coins;M.st.tokens=r.tokens;r.results.forEach(x=>{if(!M.st.items.includes(x.item))M.st.items.push(x.item)});
   const best=r.results.reduce((b,x)=>RANK(x.rarity)<RANK(b)?x.rarity:b,'N');
@@ -981,6 +1028,7 @@ async function metaAct(a,el){
   if(a==='avBg'){M.modal.av.bg=+el.dataset.i;render();return}
   if(a==='saveAvatar')return saveAvatar();
   if(a==='pull')return pull(+el.dataset.n);
+  if(a==='gpick'){M.pick=el.dataset.id;M.err='';return render()}
   if(a==='openCaps'||a==='skipGacha'){if(M.anim&&M.anim.results){M.anim.phase='open';render()}return}
   if(a==='closeGacha'){M.anim=null;render();return}
   if(a==='exchange')return exchange(el.dataset.id);
@@ -995,7 +1043,7 @@ async function metaAct(a,el){
   if(a==='inviteFriend')return inviteFriend(el.dataset.uid);
   if(a==='acceptInvite'){S.screen='online';render();return joinRoom(el.dataset.code)}
 }
-const META=new Set(['mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
+const META=new Set(['gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
 document.getElementById('app').addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const a=el.dataset.act;
   if(a==='home'){if(S.screen==='online')leaveRoom(true);S.screen='home';render();refreshState();return}
