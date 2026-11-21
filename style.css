@@ -510,3 +510,24 @@ input.namein,input.codein,input{background:rgba(10,6,40,.45);border:1px solid va
 .gbanner{background:radial-gradient(90% 80% at 100% 0%,rgba(255,200,120,.38),transparent 60%),linear-gradient(135deg,#5b2fa0,#2b1b6e)}
 .gbanner.b-B{background:radial-gradient(90% 80% at 100% 0%,rgba(255,90,120,.45),transparent 60%),linear-gradient(135deg,#7a1f4f,#2b1240)}
 .gbanner.b-S{background:radial-gradient(90% 80% at 100% 0%,rgba(120,255,220,.35),transparent 60%),linear-gradient(135deg,#17607a,#1d1c5e)}
+/* 濃い紫に(ピンク寄りをやめて、夜らしい深い紫と群青に) */
+body{background:#140c3c}
+#scene .sky{background:
+  radial-gradient(110% 45% at 50% 108%,rgba(255,170,90,.28),transparent 60%),
+  radial-gradient(90% 50% at 82% 8%,rgba(120,100,255,.28),transparent 60%),
+  linear-gradient(180deg,#0e0830 0%,#1c1158 35%,#2c1a7a 65%,#3b2496 86%,#4a2fa6 100%)}
+#scene svg.hills path{fill:#24145a}
+.hill-near{fill:#160c3e}.ground{fill:#100830}.tree{fill:#130a36}.hw{fill:#1a0f45}.hr{fill:#22145a}
+.cloud path{fill:#b9a8f0}
+.puff{fill:#b6a8e6}
+.card,.hbar,.qcard,.status{background:linear-gradient(180deg,rgba(44,30,120,.78),rgba(22,14,70,.84))}
+.stage{background:radial-gradient(90% 70% at 50% 0%,rgba(255,215,140,.18),transparent 60%),linear-gradient(180deg,rgba(48,30,130,.7),rgba(20,12,66,.85))}
+.feature,.gbanner{background:radial-gradient(90% 80% at 100% 0%,rgba(255,200,110,.3),transparent 60%),linear-gradient(135deg,#3d1f96,#1a1060)}
+.mode-card.m-online{background:radial-gradient(80% 120% at 100% 0%,rgba(255,200,110,.3),transparent 60%),linear-gradient(135deg,#4527a8,#1c1066)}
+.mode-card.m-local,.mode-card{background:radial-gradient(80% 120% at 100% 0%,rgba(120,160,255,.25),transparent 60%),linear-gradient(135deg,#34209a,#170e58)}
+.mbox,.sheet{background:linear-gradient(180deg,#2c1d82,#160e52)}
+.bnav{background:linear-gradient(180deg,rgba(36,24,104,.92),rgba(14,8,48,.95))}
+.icard{background:linear-gradient(180deg,rgba(44,30,120,.85),rgba(20,12,64,.9))}
+.cell{background:linear-gradient(180deg,#24196a,#1a1152)}
+.logo span{background:linear-gradient(180deg,#ffd0d8,#ff5a78 60%,#b81f3e);-webkit-background-clip:text;background-clip:text}
+.tagline,.hero p,.cover p,.fdesc,.mtxt small{color:#ddd6f5}
