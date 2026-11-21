@@ -805,3 +805,6 @@ input,textarea,.code{-webkit-user-select:text;user-select:text;-webkit-touch-cal
 .fullbody.flatanim img{animation:flatfloat 3.4s ease-in-out infinite;transform-origin:50% 90%}
 @keyframes flatfloat{0%,100%{transform:translateY(0) rotate(-.7deg) scale(1)}50%{transform:translateY(-9px) rotate(.7deg) scale(1.02)}}
 @media (prefers-reduced-motion: reduce){.fullbody.flatanim img{animation:none!important}}
+/* フラット版: スライド内とロック中の画像は、中央寄せ・拡大の transform をアニメーションで打ち消さないよう画像側のアニメーションを止める(スライドの動きは枠側の kenburns が担当) */
+.sl-art .fullbody.flatanim img{animation:none}
+.fullbody.flatanim.locked img{animation:none}

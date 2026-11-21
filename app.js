@@ -529,6 +529,10 @@ function avatar(av,cls=''){av=av||{c:'wolf',bg:0};const c=T[av.c]?av.c:'wolf';co
   return`<span class="av ${cls}" style="--avbg:${AV_BG[av.bg]||AV_BG[0]}">${svg}</span>`}
 // 自分のアイコンに使える一番良い見た目
 function bestStyle(c){const u=unlocks(c);return u.lux?'lux':u.gold?'gold':u.icon?'img':null}
+// サーバー側の保存(jinro_set_avatar)は見た目(s)を保存できないため、選んだ見た目をこの端末にも覚えておき、
+// サーバーから読み直したときにキャラと背景が一致していれば見た目を付け直す(他端末で変えた場合はサーバー側を優先)
+function localAvatar(){try{return JSON.parse(store.get('jinro-avatar')||'null')}catch(e){return null}}
+function mergeAvatar(av){if(!av)return av;const l=localAvatar();if(l&&l.c===av.c&&l.bg===av.bg&&l.s)return{...av,s:l.s};return av}
 function myLookFor(av){return av&&av.wolf?{wolf:av.wolf}:null}
 function titleTag(id){const it=id&&ITEM[id];return it?`<span class="ttl r-${it.rarity}">${esc(it.name)}</span>`:''}
 
@@ -547,7 +551,7 @@ async function refreshState(){
     const st=await rpc('jinro_state');
     if(!st.name){await rpc('jinro_set_name',{p_name:myName()});return refreshState()}
     const same=M.st&&JSON.stringify(M.st)===JSON.stringify(st);if(same&&!M.err)return;   // 変化がなければ描き直さない
-    const first=!M.st;M.st=st;P.names[O.uid]=st.name;P.titles[O.uid]=st.title;if(st.avatar)P.avatars[O.uid]=st.avatar;
+    const first=!M.st;M.st=st;P.names[O.uid]=st.name;P.titles[O.uid]=st.title;if(st.avatar){st.avatar=mergeAvatar(st.avatar);P.avatars[O.uid]=st.avatar}
     if(first&&st.login_claimable&&!M.modal)M.modal={type:'login'};
     loadPeople([O.uid]);
   }catch(e){M.err=e.message}
@@ -567,7 +571,7 @@ async function loadPeople(uids){
     sb.from('jinro_players').select('uid,name,title,avatar').in('uid',uids),
     sb.from('jinro_results').select('uid,win').in('uid',uids)
   ]);
-  (a.data||[]).forEach(r=>{P.names[r.uid]=r.name;P.titles[r.uid]=r.title;if(r.avatar)P.avatars[r.uid]=r.avatar});
+  (a.data||[]).forEach(r=>{P.names[r.uid]=r.name;P.titles[r.uid]=r.title;if(r.avatar)P.avatars[r.uid]=r.uid===O.uid?mergeAvatar(r.avatar):r.avatar});
   const st={};uids.forEach(u=>st[u]={w:0,n:0});
   (b.data||[]).forEach(r=>{st[r.uid].n++;if(r.win)st[r.uid].w++});
   Object.assign(P.stats,st);render();
@@ -1124,6 +1128,7 @@ async function saveAvatar(){
   try{
     try{await rpc('jinro_set_avatar2',{p_char:av.c,p_bg:av.bg,p_style:s||'svg'})}
     catch(e){if(e.code==='notowned'||e.code==='avatar')throw e;await rpc('jinro_set_avatar',{p_char:av.c,p_bg:av.bg})}
+    store.set('jinro-avatar',JSON.stringify({c:av.c,bg:av.bg,s:s||null}));
     P.avatars[O.uid]={c:av.c,bg:av.bg,...(s?{s}:{})};if(M.st)M.st.avatar=P.avatars[O.uid];M.modal=null;toast('アイコンを変えました')}
   catch(e){M.modal.busy=false;M.err=e.message;render()}
 }
