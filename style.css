@@ -813,3 +813,9 @@ input,textarea,.code{-webkit-user-select:text;user-select:text;-webkit-touch-cal
 /* スライド:モザイク(ぼかし背景)はなし。絵を枠いっぱいに表示し、高さは最初から固定して開いたときのガタつきを防ぐ(2026-11-21 本人希望) */
 .slides .sl-art{height:360px}
 .sl-art:has(.fullbody.hasimg) .sl-bg{display:none}
+/* スライドの点滅感をなくす: 発光の明滅・光の帯の横断・絵の呼吸ズーム・枠の色流れを止めて静止表示にする(2026-11-21 本人指摘「点滅のような感じがする」) */
+.slide.on .sl-aura{animation:none;opacity:.5}
+.slide .sl-shine{display:none}
+.sl-art:has(.fullbody.hasimg) .sl-chara{animation:none}
+.sl-art .sl-chara .fullbody{animation:none}
+.slide.rare-LR,.slide.rare-SSR{animation:none}
