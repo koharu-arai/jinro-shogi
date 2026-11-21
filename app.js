@@ -1096,8 +1096,8 @@ function renderGacha(){
       <p class="muted">持っているキャラが出ると特別コインがもらえます(SSR ${TOKEN_REFUND.SSR}枚・LR ${TOKEN_REFUND.LR}枚)。${TOKEN_COST}枚で、好きなSSRキャラ1体と交換できます。</p>
       <div class="exrow">${ssr.map(i=>{const has=own.has(i.id);return`<div class="ex">${tile(i.char)}<b>${esc(i.name)}</b><button class="btn ${has?'ghost':'orange'} small" data-act="exchange" data-id="${i.id}" ${has||tk<TOKEN_COST?'disabled':''}>${has?'所持':'交換'}</button></div>`}).join('')}</div></div>
     <details class="card rates"><summary><b>出る確率と景品</b></summary>
-      ${sun?`<p class="muted">日曜日は、LR・SSRが出たときに必ず選んだキャラになります(合わせて${RATES.LR+RATES.SSR}%)。</p>`:''}
-      ${RARITY_ORDER.map(r=>{const list=ITEMS.filter(i=>i.rarity===r&&i.gacha!==false&&(sun&&(r==='LR'||r==='SSR')?i.id===M.pick:(r!=='LR'||i.banner===bk)));return`<div class="rate"><div class="row"><span class="rar r-${r}">${r}</span><b>${RARITY_LABEL[r]}</b><span class="spacer"></span><b>${RATES[r]}%</b></div><p class="muted">${list.map(i=>esc(i.name)).join('・')}</p></div>`}).join('')}
+      ${sun?`<p class="muted">日曜日は、選んだキャラと同じレア度が出たら必ずそのキャラになります(LRなら${RATES.LR}%、SSRなら${RATES.SSR}%)。もう一方のレア度が出たときは、ふだんどおりそのレア度のキャラからランダムです。</p>`:''}
+      ${RARITY_ORDER.map(r=>{const pr=sun&&M.pick?ITEM[M.pick].rarity:null,list=ITEMS.filter(i=>i.rarity===r&&i.gacha!==false&&(r===pr?i.id===M.pick:(r!=='LR'||sun||i.banner===bk)));return`<div class="rate"><div class="row"><span class="rar r-${r}">${r}</span><b>${RARITY_LABEL[r]}</b><span class="spacer"></span><b>${RATES[r]}%</b></div><p class="muted">${list.map(i=>esc(i.name)).join('・')}</p></div>`}).join('')}
       <p class="muted">持っている景品が出たときは、N ${REFUND.N}・R ${REFUND.R}・SR ${REFUND.SR}コインが戻ります。キャラ(SSR・LR)は特別コインになります。</p>
     </details>`;
 }

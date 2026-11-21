@@ -262,10 +262,10 @@ begin
       r := random() * 100; rar := case when r < 0.5 then 'LR' when r < 3 then 'SSR' when r < 12 then 'SR' when r < 40 then 'R' else 'N' end;
     end if;
     if rar in ('SR','SSR','LR') then got_high := true; end if;
-    if rar in ('SSR','LR') and ban = 'S' then                       -- 日曜:キャラ枠はすべて選んだキャラ
-      it := p_pick; select rarity into rar from jinro_items where id = p_pick;
-    elsif rar = 'LR' then
-      select id into it from jinro_items where rarity = 'LR' and gacha and banner = ban order by random() limit 1;
+    if ban = 'S' and rar = (select rarity from jinro_items where id = p_pick) then   -- 日曜:選んだキャラと同じレア度が出たら、必ずそのキャラ
+      it := p_pick;
+    elsif rar = 'LR' then                                            -- LRは曜日のキャラ(日曜は4体から)
+      select id into it from jinro_items where rarity = 'LR' and gacha and (ban = 'S' or banner = ban) order by random() limit 1;
     else
       select id into it from jinro_items where rarity = rar and gacha order by random() limit 1;
     end if;

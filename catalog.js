@@ -44,7 +44,7 @@ for (const k of Object.keys(CHARS)) {
 export const BANNERS = {
   A: { name: '通常ガチャ',   days: [1, 3, 6], lr: ['fox', 'thief'],       desc: 'レジェンドレアの妖狐・怪盗が出る' },
   B: { name: '新キャラガチャ', days: [2, 4, 5], lr: ['vampire', 'cursed'], desc: 'レジェンドレアの吸血鬼・呪われた者が出る' },
-  S: { name: 'えらべるピックアップガチャ', days: [7], lr: [],            desc: '好きなキャラを1体選んで引ける。キャラが当たる3%がすべて選んだキャラになる' },
+  S: { name: 'えらべるピックアップガチャ', days: [7], lr: [],            desc: '好きなキャラを1体選んで引ける。選んだキャラのレア度が出たら必ずそのキャラ(LRなら0.5%、SSRなら2.5%)' },
 };
 export const bannerOfDay = dow => Object.keys(BANNERS).find(k => BANNERS[k].days.includes(dow)) || 'A';
 
