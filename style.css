@@ -575,3 +575,104 @@ body{background:#140c3c}
 .sndbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .sndbtn[aria-pressed="false"]{color:var(--mute)}
 .hbar .sndbtn{margin-left:auto}
+
+/* ===== キャラ素材 chara3（顔アイコン・全身・表情・道具） ===== */
+.face.img,.av.img{position:relative;overflow:hidden}
+.face.img img,.av.img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .25s}
+.face.img.hasimg img,.av.img.hasimg img{opacity:1}
+.face.img.hasimg>.ico,.av.img.hasimg>.ico{visibility:hidden}
+.av.img{box-shadow:inset 0 0 0 2px rgba(255,255,255,.7)}
+.av.img img{border-radius:50%}
+.av.gold,.face.img.gold{box-shadow:0 0 0 2.5px #ffd76a,0 0 0 4px #b8790a,0 0 10px rgba(255,200,80,.7)}
+.av.lux,.face.img.lux{box-shadow:0 0 0 2.5px #ff8fc8,0 0 0 4px #a855f7,0 0 12px rgba(255,120,220,.85);animation:luxpulse 2.4s ease-in-out infinite}
+@keyframes luxpulse{0%,100%{box-shadow:0 0 0 2.5px #ff8fc8,0 0 0 4px #a855f7,0 0 8px rgba(255,120,220,.6)}50%{box-shadow:0 0 0 2.5px #ffd76a,0 0 0 4px #ff6fae,0 0 18px rgba(255,200,120,.9)}}
+.illus{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--mute)}
+.portrait.faceonly img{object-fit:cover;border-radius:50%;inset:12%;width:76%;height:auto;aspect-ratio:1}
+.fullbody{position:relative;display:block;width:100%;max-width:300px;aspect-ratio:3/4;margin:0 auto;border-radius:18px;overflow:hidden;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.18),rgba(255,255,255,0) 70%)}
+.fullbody img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .35s}
+.fullbody.hasimg img{opacity:1}
+.fullbody.locked img{filter:brightness(0) drop-shadow(0 0 10px rgba(180,150,255,.7));opacity:.9}
+.fullbody .lockmark{position:absolute;inset:auto 0 12px;text-align:center;font-family:var(--font-d);font-size:22px;color:#e9e2ff;text-shadow:0 2px 8px #000}
+.fullbody.lux{box-shadow:0 0 0 3px #ff8fc8,0 0 24px rgba(255,120,220,.6)}
+.cfull{display:grid;gap:4px;width:100%}
+.lockhint{color:var(--mute);font-size:12px}
+.pname{display:block;font-family:var(--font-b);font-size:13px;color:var(--mute);font-weight:700}
+.alias{margin:0;font-family:var(--font-m);color:var(--gold2);font-size:15px}
+.intro{margin:0;font-size:14px;line-height:1.8;text-align:left}
+.line{display:flex;gap:10px;align-items:center;width:100%;text-align:left;border:0;border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1.5px var(--goldline);font-weight:700}
+.line .spk,.line .face{width:52px;height:52px;flex:none;border-radius:50%;overflow:hidden;background:#fff;display:inline-grid;place-items:center}
+.line .spk img{width:100%;height:100%;object-fit:cover}
+.line .face .ico{width:80%;height:80%}
+.exprs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%}
+.expr{border:0;background:rgba(255,255,255,.08);border-radius:12px;padding:6px;display:grid;gap:2px;justify-items:center}
+.expr img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#fff}
+.expr small{font-size:11px;color:var(--mute)}
+.expr.locked .q{width:100%;aspect-ratio:1;display:grid;place-items:center;border-radius:10px;background:rgba(0,0,0,.35);font-family:var(--font-d);font-size:22px;color:#8f86c4}
+.expr.prop img{object-fit:contain;background:transparent}
+.cprof{width:100%;text-align:left;font-size:13px}.cprof summary{cursor:pointer;font-weight:800}
+.ladder{list-style:none;margin:0;padding:0;display:grid;gap:6px;width:100%;text-align:left}
+.ladder li{display:grid;grid-template-columns:22px 1fr;column-gap:8px;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.22)}
+.ladder li span{grid-row:span 2;align-self:center}
+.ladder li small{color:var(--mute);font-size:12px}
+.ladder li.ok{background:rgba(58,214,154,.14)}
+.cach{width:100%;text-align:left;display:grid;gap:4px;padding:10px;border-radius:12px;background:rgba(0,0,0,.22)}
+.cach small{color:var(--mute);font-size:12px}
+.cach.done{background:linear-gradient(135deg,rgba(255,215,106,.22),rgba(255,111,174,.18));box-shadow:inset 0 0 0 1.5px var(--gold2)}
+.mbox .left{justify-self:start}
+/* 図鑑 */
+.zgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.zcard{position:relative;border:0;border-radius:16px;padding:12px 6px 10px;background:var(--panel);display:grid;justify-items:center;gap:2px;box-shadow:inset 0 0 0 1.5px var(--line)}
+.zcard .rar{position:absolute;top:6px;left:6px}
+.zcard .zface{width:64px;height:64px;border-radius:50%;background:#fff;display:grid;place-items:center;overflow:hidden}
+.zcard .zface .ico{width:78%;height:78%}
+.zcard b{font-size:13px}.zcard small{font-size:11px;color:var(--mute)}
+.zcard .znext{color:var(--gold2);font-weight:700;line-height:1.3;text-align:center}
+.zcard .zach{position:absolute;top:4px;right:8px;color:#ffd76a;text-shadow:0 0 6px #b8790a}
+.face.sil{background:#2a2163 !important}.face.sil .ico{filter:brightness(0) invert(.35)}
+.zcard.r-LR{box-shadow:inset 0 0 0 2px #ff6fae}.zcard.r-SSR{box-shadow:inset 0 0 0 2px #ffc552}
+/* ガチャ結果：全身を画面いっぱいに */
+.ghero{display:block;padding:0;background:#0c0828;overflow:hidden}
+.ghero .hbg{position:absolute;inset:0;display:grid;place-items:center}
+.ghero .hbg .fullbody{max-width:none;width:100%;height:100%;aspect-ratio:auto;border-radius:0;background:radial-gradient(circle at 50% 40%,rgba(255,215,140,.35),rgba(20,10,60,0) 65%)}
+.ghero.r-LR .hbg .fullbody{background:radial-gradient(circle at 50% 40%,rgba(255,120,220,.45),rgba(20,10,60,0) 65%)}
+.ghero .hbg img{object-fit:cover;object-position:50% 15%}
+.ghero .hbg .fullbody.locked img{object-fit:contain}
+.ghero .hinfo{position:absolute;inset:auto 0 0;padding:28px 18px calc(18px + env(safe-area-inset-bottom));display:grid;gap:8px;justify-items:center;text-align:center;background:linear-gradient(180deg,rgba(12,8,40,0),rgba(12,8,40,.85) 30%,rgba(12,8,40,.96));animation:rise .5s ease-out both}
+.ghero h2{font-size:32px}.ghero h2 small{display:block;font-family:var(--font-m);font-size:16px;color:var(--gold1)}
+.ghero .intro{text-align:center;max-width:380px}
+.new.big{font-weight:900;color:#ff5470;background:#fff;border-radius:8px;padding:1px 8px}
+@keyframes rise{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+/* 物語 */
+.story p{margin:0;line-height:1.9;font-size:14px}
+.scast{display:flex;gap:6px;flex-wrap:wrap}
+.face.mini{width:34px;height:34px;border-radius:50%;background:#fff;display:inline-grid;place-items:center;overflow:hidden}
+.face.mini .ico{width:80%;height:80%}
+.play{position:relative;min-height:62vh;border-radius:20px;overflow:hidden;background:linear-gradient(180deg,#2b1f6e,#120c38);cursor:pointer}
+.play .pbg{position:absolute;inset:0}
+.play .pbg .fullbody{max-width:none;width:100%;height:100%;aspect-ratio:auto;border-radius:0;opacity:.85}
+.play .pbox{position:absolute;inset:auto 10px 34px;display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:16px;background:rgba(14,8,40,.86);box-shadow:inset 0 0 0 1.5px var(--goldline);animation:rise .3s ease-out both}
+.play .pbox b{display:block}.play .pbox b small{margin-left:6px;color:var(--mute);font-size:12px}
+.play .pbox p{margin:4px 0 0;font-weight:700;line-height:1.7}
+.play .sface{width:64px;height:64px;flex:none;border-radius:50%;overflow:hidden;background:#fff;display:inline-grid;place-items:center}
+.play .sface img{width:100%;height:100%;object-fit:cover}
+.play .sface .ico{width:80%;height:80%}
+.play .ptap{position:absolute;bottom:10px;left:0;right:0;text-align:center;color:var(--mute);font-size:12px}
+.center{text-align:center}
+/* 対局後の解放通知 */
+.card.unlock.new{background:linear-gradient(135deg,rgba(255,215,106,.25),rgba(168,85,247,.25));box-shadow:inset 0 0 0 2px var(--gold2);animation:pop .5s cubic-bezier(.2,1.6,.4,1) both}
+.unews{display:grid;gap:8px}
+.un{display:flex;gap:10px;align-items:center;border:0;text-align:left;padding:8px;border-radius:14px;background:rgba(0,0,0,.25)}
+.un span b{display:block}.un small{color:var(--gold1);font-size:12px}
+.un .unface{width:52px;height:52px;border-radius:50%;background:#fff;display:inline-grid;place-items:center;overflow:hidden;flex:none}
+.un .unface .ico{width:80%;height:80%}
+.un .unfull{width:60px;max-width:60px;flex:none}
+.uprog summary{cursor:pointer;font-weight:800;font-size:13px}
+.prgs{display:grid;gap:6px;margin-top:8px}
+.prg{display:flex;gap:8px;align-items:center;--cell:34px}.prg small{font-size:12px;color:var(--mute)}
+/* リアクション道具 */
+.reacts{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+.react{width:52px;height:52px;border:0;border-radius:12px;background:rgba(255,255,255,.12);padding:4px}
+.react img{width:100%;height:100%;object-fit:contain}
+.bubble.react{padding:4px;background:#fff}
+.bubble.react img{width:56px;height:56px;object-fit:contain;display:block;animation:wiggle .6s ease-in-out 2}
+@keyframes wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}

@@ -1,4 +1,5 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
+import { ART, KEYS as C3KEYS, LR_KEYS, PROFILE, STORY, WORLD, LADDER, CHARA_ACH, EXPR_LABEL, unlocks, nextLadder, recordGame, faceIcon, fullbodyImg, lazyImg } from "./chara3.js";
 import { CHARS, BANNERS, bannerOfDay, BASE_RARITY, EXP, RANKS, ITEMS, ITEM, ACH_ITEMS, ACHIEVEMENTS, DEFAULT_STAMPS, MISSIONS, RATES, REFUND, TOKEN_REFUND, TOKEN_COST, COST, RARITY_LABEL, RARITY_ORDER, KIND_LABEL, LOGIN } from "./catalog.js";
 
 /* ===== rules data ===== */
@@ -59,7 +60,9 @@ function sanitizeDeck(d,R){
   const free=SWAP_BASE.filter(t=>!d.includes(t));
   return d.map(t=>NEWC.includes(t)?free.shift()||'villager':t);
 }
-function newGame(setups,rules){const r={...DEFAULT_RULES,...(rules||{})};return{board:buildBoard(setups.map(s=>sanitizeDeck(s,r))),hands:[[],[]],turn:0,last:null,rules:r,time:[r.time,r.time],winner:null,reason:'',skip:null}}
+// 対局中の出来事(キャラ別アチーブメント用)。p = その出来事を起こした側
+const evPush=(G,p,e)=>{(G.ev=G.ev||[]).push({p,e})};
+function newGame(setups,rules){const r={...DEFAULT_RULES,...(rules||{})};const decks=setups.map(s=>sanitizeDeck(s,r));return{decks,ev:[],board:buildBoard(decks),hands:[[],[]],turn:0,last:null,rules:r,time:[r.time,r.time],winner:null,reason:'',skip:null}}
 function targets(G,r,c){
   const P=G.board[r][c],out=[],s=P.owner===0?1:-1;
   for(const[dy,dx]of T[P.type].m){
@@ -99,28 +102,29 @@ function applyMove(G,r,c,nr,nc){
   const an=T[A.type].nm,qn=T[Q.type].nm;
   // 隠れた人狼の返り討ち(占い師と妖狐には効かない)
   if(Q.type==='wolf'&&!Q.revealed&&A.type!=='seer'&&A.type!=='fox'){
-    B[r][c]=null;Q.revealed=true;G.last={from:[r,c],to:[nr,nc],kind:'counter'};
+    B[r][c]=null;Q.revealed=true;G.last={from:[r,c],to:[nr,nc],kind:'counter'};evPush(G,op,'wolfCounter');
     let res=`返り討ち！ その駒は隠れた人狼でした。あなたの${an}は`,note=`あなたの人狼が相手の${an}を返り討ちにしました。人狼の正体が相手に知られました。`;
-    if(A.type==='nekomata'){B[nr][nc]=null;res+='消えましたが、猫又の道連れで人狼も消えました。';note+=' ただし猫又の道連れで、人狼も消えました。'}
-    else if(A.type==='cursed'){B[r][c]=A;A.owner=op;A.shown=true;res+='消えずに、呪いで相手の駒に寝返りました。';note+=' 相手の呪われた者が、あなたの駒に寝返りました。'}
+    if(A.type==='nekomata'){evPush(G,me,'nekoDrag');B[nr][nc]=null;res+='消えましたが、猫又の道連れで人狼も消えました。';note+=' ただし猫又の道連れで、人狼も消えました。'}
+    else if(A.type==='cursed'){evPush(G,me,'cursedTurn');B[r][c]=A;A.owner=op;A.shown=true;res+='消えずに、呪いで相手の駒に寝返りました。';note+=' 相手の呪われた者が、あなたの駒に寝返りました。'}
     else{if(R.drops)G.hands[op].push(baseType(A));res+=R.drops?'相手の持ち駒になります。':'盤から取り除かれました。'}
-    if(A.type==='teru'){G.skip=op;res+=' てるてるの力で、もう1手続けて動けます。';note+=' てるてるの力で、相手がもう1手続けて動きます。'}
+    if(A.type==='teru'){evPush(G,me,'teruExtra');G.skip=op;res+=' てるてるの力で、もう1手続けて動けます。';note+=' てるてるの力で、相手がもう1手続けて動きます。'}
     if(A.type==='king'){G.winner=op;G.reason='王様が隠れた人狼に返り討ちにされました'}
     return{res,note,alert:true,bad:true};
   }
   // タフガイは1回だけ耐える
   if(Q.type==='tough'&&!Q.hurt){
-    Q.hurt=true;Q.shown=true;G.last={from:[r,c],to:[nr,nc],kind:'counter'};
+    Q.hurt=true;Q.shown=true;G.last={from:[r,c],to:[nr,nc],kind:'counter'};evPush(G,op,'toughEndure');
     return{res:'取れなかった！ その駒はタフガイで、1回耐えました。次は取れます。',note:'あなたのタフガイが攻撃に耐えました。正体が相手に知られ、負傷しました。',alert:true,bad:true};
   }
+  if(Q.type==='wolf'&&!Q.revealed){if(A.type==='seer')evPush(G,me,'seerWolf');else if(A.type==='fox')evPush(G,me,'foxWolf')}
   B[nr][nc]=A;B[r][c]=null;G.last={from:[r,c],to:[nr,nc],kind:'capture'};
   let res=`相手の${qn}を取りました。`,note=`あなたの${qn}が取られました。`;
   if(Q.type==='nekomata'){
-    B[nr][nc]=null;res+=' 猫又の道連れで、取った駒も消えました。';note+=` 猫又の道連れで、相手の${an}も消えました。`;
+    evPush(G,op,'nekoDrag');B[nr][nc]=null;res+=' 猫又の道連れで、取った駒も消えました。';note+=` 猫又の道連れで、相手の${an}も消えました。`;
     if(A.type==='king'){G.winner=op;G.reason='王様が猫又に道連れにされました';return{res,note,alert:true,bad:true}}
   }else if(R.drops){G.hands[me].push(baseType(Q));res+='持ち駒として打てます。'}
   if(Q.type==='medium'&&B[nr][nc]===A){A.shown=true;res+=' 霊媒師の力で、この駒の正体が相手に知られました。';note+=` 霊媒師の力で、取った駒が${an}だとわかりました。`}
-  if(Q.type==='teru'){G.skip=me;res+=' てるてるの力で、相手がもう1手続けて動きます。';note+=' てるてるの力で、あなたはもう1手続けて動けます。'}
+  if(Q.type==='teru'){evPush(G,op,'teruExtra');G.skip=me;res+=' てるてるの力で、相手がもう1手続けて動きます。';note+=' てるてるの力で、あなたはもう1手続けて動けます。'}
   if(A.type==='thief'&&Q.type!=='king'&&B[nr][nc]===A){A.orig='thief';A.type=Q.type;A.revealed=Q.type==='wolf';A.hurt=!!Q.hurt;res+=` 怪盗が${qn}に変身しました。`}
   else if(A.orig==='thief'&&Q.type!=='king'&&B[nr][nc]===A){A.type=Q.type;A.revealed=Q.type==='wolf';A.hurt=!!Q.hurt;res+=` 怪盗が${qn}に変身しました。`}
   if(R.reveal&&B[nr][nc]===A){A.shown=true;res+='この駒の正体は相手に公開されました。';note+=` 取った駒は${T[A.type].nm}です。`}
@@ -143,7 +147,7 @@ function applyBite(G,r,c,nr,nc){
     Q.marked=true;
     return{res:'噛みつけなかった！ その駒は王様か人狼です(印が付きました)。吸血鬼の力は使い切りました。',note:'相手の吸血鬼が噛みつこうとしましたが、失敗しました。噛まれた駒が王様か人狼だと知られました。',alert:true,bad:true};
   }
-  const qn=T[Q.type].nm;Q.owner=A.owner;Q.shown=true;
+  const qn=T[Q.type].nm;Q.owner=A.owner;Q.shown=true;evPush(G,A.owner,'bite');
   return{res:`噛みついた！ 相手の${qn}があなたの駒になりました。`,note:`相手の吸血鬼に噛まれ、あなたの${qn}が相手の駒になりました。`,alert:true};
 }
 function applyDrop(G,i,r,c){
@@ -456,7 +460,13 @@ const nameOf=(uid,fb)=>P.names[uid]||fb;
 function statText(uid){const st=P.stats[uid];if(!st||!st.n)return'戦績なし';return`勝率 ${Math.round(st.w/st.n*100)}%・${st.n}戦${st.w}勝`}
 const AV_BG=['#ff6f93','#ff9f1c','#3f86f0','#22b573','#a855f7','#1d2232','#f5b82e','#8b93a7'];
 const avOf=uid=>P.avatars[uid]||{c:'wolf',bg:0};
-function avatar(av,cls=''){av=av||{c:'wolf',bg:0};const c=T[av.c]?av.c:'wolf';return`<span class="av ${cls}" style="--avbg:${AV_BG[av.bg]||AV_BG[0]}">${iconSvg(c,c==='wolf'?myLookFor(av):null)}</span>`}
+// アイコン。av.s = 'img'(顔イラスト) / 'gold'(金フレーム) / 'lux'(LRの豪華版)。未設定は駒のSVG
+function avatar(av,cls=''){av=av||{c:'wolf',bg:0};const c=T[av.c]?av.c:'wolf';const svg=iconSvg(c,c==='wolf'?myLookFor(av):null);
+  const st=['img','gold','lux'].includes(av.s)&&ART[c]?av.s:null;
+  if(st){const src=st==='lux'&&ART[c].iconLux?ART[c].iconLux:ART[c].icon;return`<span class="av img ${st} ${cls}" style="--avbg:${AV_BG[av.bg]||AV_BG[0]}">${svg}${lazyImg(src,T[c].nm)}</span>`}
+  return`<span class="av ${cls}" style="--avbg:${AV_BG[av.bg]||AV_BG[0]}">${svg}</span>`}
+// 自分のアイコンに使える一番良い見た目
+function bestStyle(c){const u=unlocks(c);return u.lux?'lux':u.gold?'gold':u.icon?'img':null}
 function myLookFor(av){return av&&av.wolf?{wolf:av.wolf}:null}
 function titleTag(id){const it=id&&ITEM[id];return it?`<span class="ttl r-${it.rarity}">${esc(it.name)}</span>`:''}
 
@@ -556,7 +566,8 @@ function renderLocal(){
   const G=L.G;
   if(L.phase==='over'){
     const cr=L.cpu,rw=cr&&G.winner===0?(cr.reward!=null?`<div class="card reward"><b>${cr.reward>0?`+${cr.reward}コイン獲得！`:'今日のCPU戦コインは上限(50枚)に達しました'}</b><small class="muted">今日のCPU戦 ${cr.today??0}/50コイン</small></div>`:cr.rewardErr?`<p class="muted">${esc(cr.rewardErr==='開始から20秒以上たってから勝つとコインがもらえます。'?cr.rewardErr:'コインは受け取れませんでした('+cr.rewardErr+')')}</p>`:cr.game?'<p class="muted">コインを受け取っています…</p>':'<p class="muted">名前を決めてオンラインにつながると、勝ったときにコインがもらえます。</p>'):'';
-    return`<section class="hero"><h1 class="over-h">${cr?(G.winner===0?'あなたの勝ち！':'CPUの勝ち'):NAME[G.winner]+'の勝ち'}</h1><p>${esc(G.reason)}。すべての駒を公開しています。</p></section>${rw}
+    if(cr&&!L.c3)L.c3=charaEnd(G,0,'cpu-'+(L.c3key||(L.c3key=Date.now())));
+    return`<section class="hero"><h1 class="over-h">${cr?(G.winner===0?'あなたの勝ち！':'CPUの勝ち'):NAME[G.winner]+'の勝ち'}</h1><p>${esc(G.reason)}。すべての駒を公開しています。</p></section>${rw}${cr?unlockNotice(L.c3,G.decks?.[0]):''}
       ${boardHTML(G,0,{reveal:true,looks:localLooks()})}<div class="row"><button class="btn orange" data-act="localAgain">もう一度遊ぶ</button><button class="btn ghost" data-act="home">ホームへ</button></div>`;
   }
   const v=L.cpu?0:G.turn,op=1-v,play=L.phase==='play'&&!(L.cpu&&G.turn===1);
@@ -732,9 +743,13 @@ async function writeEnd(winner,reason){
   await saveGame(g);
 }
 /* ---- in-game stamps ---- */
+// リアクション道具(キャラ素材)。id は r_<キャラ>
+const REACT=k=>'r_'+k;
+const myReactions=()=>C3KEYS.filter(k=>unlocks(k).prop);
 function showBubble(uid,item){
-  const it=ITEM[item];if(!it)return;
-  O.bubbles[uid]={text:it.name,at:Date.now()};play('stamp');render();
+  const rk=typeof item==='string'&&item.startsWith('r_')?item.slice(2):null;
+  const it=ITEM[item];if(!it&&!(rk&&ART[rk]))return;
+  O.bubbles[uid]=rk?{react:rk,at:Date.now()}:{text:it.name,at:Date.now()};play('stamp');render();
   setTimeout(()=>{const b=O.bubbles[uid];if(b&&Date.now()-b.at>=3900){delete O.bubbles[uid];render()}},4000);
 }
 async function sendStamp(item){
@@ -743,10 +758,11 @@ async function sendStamp(item){
 }
 function stampBar(){
   if(!O.code)return'';
-  return`<div class="stampbar">${O.stampOpen?`<div class="stamps">${myStamps().map(s=>`<button class="stamp" data-act="stamp" data-id="${s.id}">${esc(s.name)}</button>`).join('')}</div>`:''}
+  const rs=myReactions();
+  return`<div class="stampbar">${O.stampOpen?`<div class="stamps">${rs.length?`<div class="reacts">${rs.map(k=>`<button class="react" data-act="stamp" data-id="${REACT(k)}" aria-label="${esc(T[k].nm)}のリアクション">${lazyImg(ART[k].prop,T[k].nm)}</button>`).join('')}</div>`:'<small class="muted">リアクション道具は、そのキャラを25回使うと解放されます</small>'}${myStamps().map(s=>`<button class="stamp" data-act="stamp" data-id="${s.id}">${esc(s.name)}</button>`).join('')}</div>`:''}
     <button class="btn ghost small stampbtn" data-act="stampToggle" aria-expanded="${O.stampOpen}">💬 スタンプ</button></div>`;
 }
-function bubble(uid){const b=uid&&O.bubbles[uid];return b?`<span class="bubble">${esc(b.text)}</span>`:''}
+function bubble(uid){const b=uid&&O.bubbles[uid];return b?(b.react?`<span class="bubble react">${lazyImg(ART[b.react].prop,T[b.react].nm)}</span>`:`<span class="bubble">${esc(b.text)}</span>`):''}
 function playerRow(uid,fb,seat,extra){
   return`<div class="side pl">${uid?avatar(avOf(uid),'sm'):''}${titleTag(P.titles[uid])}<span class="who">${esc(nameOf(uid,fb))}</span><span class="badge">${NAME[seat]}</span>${uid?`<span class="stat">${statText(uid)}</span>`:''}${extra||''}${bubble(uid)}</div>`;
 }
@@ -796,9 +812,11 @@ function renderOnline(){
       ${setupHTML(O.draft,O.sel?.i,pool,myLook(),O.deckMsg)}${note}${setupControls()}<button class="btn orange" data-act="ready" ${O.busy?'disabled':''}>この配置で決定</button>${err}${opIn?stampBar():''}${rulesHTML()}`;
   }
   if(g.phase==='over'){
-    const win=g.winner===me;
+    const win=g.winner===me,c3k=`${O.code}-${g.startNo}-${me}`;
+    if(!O.c3||O.c3.key!==c3k)O.c3={key:c3k,news:charaEnd(g,me,'on-'+c3k)};
     return`<div class="top"><button class="btn ghost small" data-act="leave">退出</button></div>
       <section class="hero"><h1 class="over-h">${win?'あなたの勝ち':'あなたの負け'}</h1><p>${esc(g.reason)}。すべての駒を公開しています。</p></section>
+      ${unlockNotice(O.c3.news,g.decks?.[me])}
       <div class="card">${playerRow(myUid,'あなた',me,g.winner===me?'<span class="badge turn">勝ち</span>':'')}${playerRow(opUid,'相手',op,g.winner===op?'<span class="badge turn">勝ち</span>':'')}</div>
       ${boardHTML(g,me,{reveal:true,looks})}
       ${stampBar()}
@@ -959,6 +977,8 @@ function renderHome(){
     <div class="quick">
       <button class="qcard" data-act="go" data-to="missions">${mr?`<i class="dot">${mr}</i>`:''}<span class="qico">${UI.mission}</span><b>デイリー</b>
         <span class="qbar"><i style="width:${done/MISSIONS.length*100}%"></i></span><small>今日 ${done}/${MISSIONS.length} 達成</small></button>
+      <button class="qcard" data-act="zukan"><span class="qico">📖</span><b>図鑑・物語</b>
+        <span class="qbar"><i style="width:${C3KEYS.filter(k=>unlocks(k).icon).length/C3KEYS.length*100}%"></i></span><small>${C3KEYS.filter(k=>unlocks(k).icon).length}/${C3KEYS.length}体 解放</small></button>
       <button class="qcard" data-act="go" data-to="collection"><span class="qico">${UI.coll}</span><b>コレクション</b>
         <span class="qbar"><i style="width:${allItems.length?have/allItems.length*100:0}%"></i></span><small>${have}/${allItems.length} 所持</small></button>
     </div>
@@ -989,7 +1009,7 @@ const UI={
   phone:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M10.8 18.4h2.4M3 9l2 2-2 2M21 9l-2 2 2 2"/></svg>',
 };
 const NAV=[['home','ホーム','home'],['gacha','ガチャ','gacha'],['friends','フレンド','friend'],['missions','ミッション','mission']];
-const NAV_OF={home:'home',battle:'home',collection:'home',online:'home',gacha:'gacha',friends:'friends',missions:'missions'};
+const NAV_OF={home:'home',battle:'home',collection:'home',story:'home',online:'home',gacha:'gacha',friends:'friends',missions:'missions'};
 function showNav(){const s=S.screen;if(!myName()||P.editing)return false;if(s==='local')return false;if(s==='online')return !O.code;return s in NAV_OF}
 function navBar(){
   const cur=NAV_OF[S.screen],badge={missions:missionsReady(),friends:friendBadge()};
@@ -1000,15 +1020,20 @@ function backBar(t,back){return`<div class="top">${back?`<button class="btn ghos
 /* ---- avatar ---- */
 function avatarModal(){
   const m=M.modal,av=m.av,pool=[...BASE,...ownedChars()];
-  return`<div class="modal"><div class="mbox"><span class="tag">アイコン</span><div class="avprev">${avatar(av,'xl')}</div>
-    <b class="left">キャラ</b><div class="avgrid">${pool.map(c=>`<button class="avpick${av.c===c?' on':''}" data-act="avChar" data-c="${c}" aria-label="${T[c].nm}">${avatar({c,bg:av.bg},'md')}<small>${T[c].nm}</small></button>`).join('')}</div>
+  const st=m.illus!==false?bestStyle(av.c):null;
+  return`<div class="modal"><div class="mbox"><span class="tag">アイコン</span><div class="avprev">${avatar({...av,s:st},'xl')}</div>
+    <label class="illus"><input type="checkbox" data-act="avIllus" ${m.illus!==false?'checked':''}> 顔イラストを使う(そのキャラを1回使うと解放)</label>
+    <b class="left">キャラ</b><div class="avgrid">${pool.map(c=>`<button class="avpick${av.c===c?' on':''}" data-act="avChar" data-c="${c}" aria-label="${T[c].nm}">${avatar({c,bg:av.bg,s:m.illus!==false?bestStyle(c):null},'md')}<small>${T[c].nm}</small></button>`).join('')}</div>
     ${NEWC.some(c=>!ownedChars().includes(c))?'<p class="muted left">新キャラはガチャで手に入れるとアイコンにできます。</p>':''}
     <b class="left">背景の色</b><div class="avcolors">${AV_BG.map((c,i)=>`<button class="avc${av.bg===i?' on':''}" style="background:${c}" data-act="avBg" data-i="${i}" aria-label="色${i+1}"></button>`).join('')}</div>
     <div class="row center"><button class="btn ghost" data-act="closeModal">やめる</button><button class="btn orange" data-act="saveAvatar" ${m.busy?'disabled':''}>保存</button></div></div></div>`;
 }
 async function saveAvatar(){
-  const av=M.modal.av;M.modal.busy=true;render();
-  try{await rpc('jinro_set_avatar',{p_char:av.c,p_bg:av.bg});P.avatars[O.uid]={c:av.c,bg:av.bg};if(M.st)M.st.avatar=P.avatars[O.uid];M.modal=null;toast('アイコンを変えました')}
+  const av=M.modal.av,s=M.modal.illus!==false?bestStyle(av.c):null;M.modal.busy=true;render();
+  try{
+    try{await rpc('jinro_set_avatar2',{p_char:av.c,p_bg:av.bg,p_style:s||'svg'})}
+    catch(e){if(e.code==='notowned'||e.code==='avatar')throw e;await rpc('jinro_set_avatar',{p_char:av.c,p_bg:av.bg})}
+    P.avatars[O.uid]={c:av.c,bg:av.bg,...(s?{s}:{})};if(M.st)M.st.avatar=P.avatars[O.uid];M.modal=null;toast('アイコンを変えました')}
   catch(e){M.modal.busy=false;M.err=e.message;render()}
 }
 
@@ -1026,7 +1051,9 @@ function loginModal(){
 
 /* ---- gacha ---- */
 // 全身イラスト。画像がまだ無いときは駒アイコンを出す
-function portrait(k,cls=''){const c=CHARS[k];return`<span class="portrait ${cls}">${tile(k,{})}${c?.fullbody?`<img src="${c.fullbody}" alt="${esc(c.nm)}" loading="lazy" decoding="async" onload="this.parentNode.classList.add('hasimg')" onerror="this.remove()">`:''}</span>`}
+// 解放済みなら全身(50回)→顔アイコン(1回)の順で画像、未解放は駒アイコン
+function portrait(k,cls=''){const a=ART[k],u=a?unlocks(k):null;const src=!u?null:u.full?(u.lux&&a.fullbodyLux?a.fullbodyLux:a.fullbody):u.icon?(u.lux&&a.iconLux?a.iconLux:a.icon):null;
+  return`<span class="portrait ${cls}${u&&!u.full&&u.icon?' faceonly':''}">${tile(k,{})}${src?lazyImg(src,T[k].nm):''}</span>`}
 function itemArt(it,big){
   if(!it)return'';
   if(it.kind==='char')return portrait(it.char);
@@ -1091,6 +1118,14 @@ function machineSVG(A){
 }
 function gachaOverlay(){
   const A=M.anim,best=A.best||'N';
+  if(A.phase==='open'&&A.hero!=null){
+    const cs=heroChars(A),r=cs[A.hero],it=ITEM[r.item],k=it.char,pf=PROFILE[k],u=unlocks(k);
+    return`<div class="modal ghero r-${it.rarity}"><div class="hbg">${fullbodyImg(k,{cls:'hfull'})}</div>
+      <div class="hinfo"><span class="rar big r-${it.rarity}">${it.rarity}</span>${r.dup?'':'<span class="new big">NEW</span>'}
+        <h2>${esc(it.name)}<small>${esc(pf.name)}</small></h2><p class="alias">${esc(pf.alias)}</p><p class="intro">${esc(pf.intro)}</p>
+        ${!u.full?`<small class="muted">全身イラストは、このキャラを50回使うと解放されます(いまはシルエット)</small>`:''}
+        <div class="row center">${cs.length>1?`<button class="btn ghost" data-act="heroNext">次のキャラ(${A.hero+1}/${cs.length})</button>`:''}<button class="btn orange" data-act="heroDone">結果を見る</button></div></div></div>`;
+  }
   if(A.phase==='open'){
     const tokens=A.results.reduce((s,r)=>s+(r.token||0),0),coins=A.results.reduce((s,r)=>s+(r.refund||0),0);
     return`<div class="modal gmodal best-${best}"><div class="mbox wide"><span class="tag">ガチャ結果</span>${best==='LR'||best==='SSR'?`<h2 class="shout s-${best}">${best==='LR'?'レジェンドレア！！':'超激レア！'}</h2>`:''}
@@ -1111,6 +1146,8 @@ function gachaOverlay(){
     <button class="btn ghost small skip" data-act="skipGacha">スキップ</button></div></div>`;
 }
 const RANK=r=>RARITY_ORDER.indexOf(r);
+// ガチャで当たったキャラ(レア度の高い順・重複なし)
+function heroChars(A){return[...new Map((A.results||[]).filter(r=>ITEM[r.item]?.kind==='char').map(r=>[r.item,r])).values()].sort((a,b)=>RANK(a.rarity)-RANK(b.rarity))}
 async function pull(n){
   if(M.anim&&M.anim.phase!=='open')return;
   M.err='';const t0=Date.now();
@@ -1166,7 +1203,7 @@ async function claimAch(id){
 }
 
 /* ---- collection ---- */
-const TABS=[['deck','編成'],['char','キャラ'],['skin','着せ替え'],['frame','枠の色'],['wolf','人狼の毛色'],['back','駒裏'],['title','称号'],['stamp','スタンプ']];
+const TABS=[['deck','編成'],['zukan','図鑑'],['char','キャラ'],['skin','着せ替え'],['frame','枠の色'],['wolf','人狼の毛色'],['back','駒裏'],['title','称号'],['stamp','スタンプ']];
 function renderCollection(){
   const st=M.st;if(!st)return`${backBar('コレクション','home')}<div class="card"><p class="muted">読み込み中…</p></div>`;
   const own=owned(),tab=M.tab,look=myLook();
@@ -1179,6 +1216,8 @@ function renderCollection(){
       ${setupHTML(D.arr,D.sel?.i,pool,look,D.msg,true)}${setupControls()}${rankCard()}
       ${NEWC.some(c=>!ownedChars().includes(c))?'<p class="muted">新キャラはガチャで手に入れると編成に入れられます。</p>':''}`;
   }
+  if(tab==='zukan')return`${backBar('コレクション','home')}
+      <div class="tabs" role="tablist">${TABS.map(([k,l])=>`<button class="tab${k===tab?' on':''}" role="tab" aria-selected="${k===tab}" data-act="tab" data-tab="${k}">${l}</button>`).join('')}</div>${zukanHTML()}`;
   const list=(tab==='stamp'?[...DEFAULT_STAMPS,...ITEMS.filter(i=>i.kind==='stamp')]:tab==='title'?[...ACH_ITEMS,...ITEMS.filter(i=>i.kind==='title')]:ITEMS.filter(i=>i.kind===tab)).sort((a,b)=>RARITY_ORDER.indexOf(a.rarity)-RARITY_ORDER.indexOf(b.rarity));
   const isOwned=i=>own.has(i.id)||DEFAULT_STAMPS.some(s=>s.id===i.id);
   const equipped=i=>tab==='title'?st.title===i.id:look[tab]===i.id;
@@ -1234,15 +1273,103 @@ async function inviteFriend(uid){
 }
 
 /* ===== root ===== */
-function charModal(){
-  const k=M.modal.c,c=CHARS[k],it=CHAR_ITEM[k],has=owned().has(it?.id);
-  return`<div class="modal cmodal"><div class="mbox charbox r-${it?.rarity}"><span class="tag">キャラ詳細</span>${portrait(k,'xl')}
-    <div class="row center"><span class="rar big r-${it?.rarity}">${it?.rarity}</span><h2>${esc(c.nm)}</h2></div>
-    <p class="cdesc2">${esc(c.d)}</p>
-    <div class="cmove">${tile(k,{})}<small>動ける方向</small></div>
-    ${has?'':'<p class="muted">まだ持っていません。ガチャで手に入ります。</p>'}
-    <button class="btn orange" data-act="closeModal">閉じる</button></div></div>`;
+// レア度(基本の6体も含む)
+const rarOfChar=k=>CHAR_ITEM[k]?.rarity||rarOf(k);
+const hasChar=k=>BASE.includes(k)||owned().has(CHAR_ITEM[k]?.id);
+// 解放の進み具合(図鑑・詳細で使う)
+function ladderHTML(k){
+  const u=unlocks(k);
+  return`<ol class="ladder">${LADDER.map(x=>{const ok=u[x.key];return`<li class="${ok?'ok':''}"><span>${ok?'✓':'🔒'}</span><b>${x.label}</b><small>${ok?'解放済み':`使用${x.n}回で解放(あと${x.n-u.uses}回)`}</small></li>`}).join('')}</ol>`;
 }
+function achHTML(k){
+  const u=unlocks(k),a=CHARA_ACH[k],lr=LR_KEYS.includes(k);
+  return`<div class="cach${u.ach?' done':''}"><b>キャラ別アチーブメント</b><small>${esc(a.label)}</small>
+    <span class="meter"><i style="width:${Math.min(1,u.achValue/u.achGoal)*100}%"></i></span>
+    <small>${u.ach?'達成！ ':''}${u.achValue}/${u.achGoal}・報酬:${lr?'豪華版の全身イラストとアイコン':'金フレームのアイコン'}</small></div>`;
+}
+function exprGallery(k){
+  const u=unlocks(k),a=ART[k];
+  return`<div class="exprs">${Object.entries(a.expr).map(([e,src])=>u.expr?`<button class="expr" data-act="charLine" data-c="${k}" data-e="${e}">${lazyImg(src,EXPR_LABEL[e])}<small>${EXPR_LABEL[e]}</small></button>`:`<span class="expr locked"><span class="q">？</span><small>${EXPR_LABEL[e]}</small></span>`).join('')}
+    ${u.prop?`<span class="expr prop">${lazyImg(a.prop,'リアクション道具')}<small>道具</small></span>`:`<span class="expr locked"><span class="q">？</span><small>道具</small></span>`}</div>`;
+}
+function charModal(){
+  const k=M.modal.c,pf=PROFILE[k],u=unlocks(k),r=rarOfChar(k),has=hasChar(k),e=M.modal.e;
+  const known=u.uses>0;
+  const speaker=e&&u.expr?`<span class="spk">${lazyImg(ART[k].expr[e],EXPR_LABEL[e])}</span>`:u.icon?faceIcon(k,iconSvg(k),{cls:'spk'}):'';
+  return`<div class="modal cmodal"><div class="mbox charbox r-${r}"><span class="tag">キャラ詳細</span>
+    <div class="cfull">${fullbodyImg(k,{cls:'big'})}${!u.full?`<small class="lockhint">全身イラストは使用50回で解放(あと${Math.max(0,50-u.uses)}回)</small>`:''}</div>
+    <div class="row center"><span class="rar big r-${r}">${r}</span><h2>${esc(T[k].nm)}<small class="pname">${esc(pf.name)}</small></h2></div>
+    <p class="alias">${esc(pf.alias)}</p>
+    <p class="intro">${esc(pf.intro)}</p>
+    <button class="line" data-act="charLine" data-c="${k}" data-e="${u.expr?(e==='angry'?'surprise':e==='surprise'?'shy':'angry'):''}">${speaker}<span>「${esc(pf.line)}」</span></button>
+    ${u.expr?'<small class="muted">表情をタップすると、セリフに合わせて表情が変わります</small>':''}
+    ${exprGallery(k)}
+    <details class="cprof"><summary>プロフィール</summary><p>${esc(pf.profile)}</p><p class="muted">${esc(pf.ties)}</p></details>
+    <p class="cdesc2">${esc(T[k].d)}</p>
+    <div class="cmove">${tile(k,{})}<small>動ける方向</small></div>
+    <b class="left">解放</b><small class="muted left">使用回数 ${u.uses}回(このキャラを編成して対局した回数)</small>${ladderHTML(k)}${achHTML(k)}
+    ${has?'':'<p class="muted">まだ持っていません。ガチャで手に入ります。</p>'}
+    <div class="row center"><button class="btn ghost" data-act="go" data-to="story">物語を読む</button><button class="btn orange" data-act="closeModal">閉じる</button></div></div></div>`;
+}
+
+/* ---- 図鑑 ---- */
+function zukanHTML(){
+  const done=C3KEYS.filter(k=>unlocks(k).icon).length;
+  return`<div class="card zhead"><b>キャラ図鑑</b><p class="muted">キャラを編成して対局すると、顔アイコン→表情→リアクション道具→全身イラストの順に解放されます。キャラ別アチーブメントを達成すると特別なアイコンも。${done}/${C3KEYS.length}体 解放中</p>
+    <button class="btn ghost small" data-act="go" data-to="story">📖 物語『月夜の盤上』を読む</button></div>
+    <div class="zgrid">${C3KEYS.map(k=>{const u=unlocks(k),nx=nextLadder(k),r=rarOfChar(k),has=hasChar(k);
+      return`<button class="zcard r-${r}${u.icon?'':' locked'}" data-act="charInfo" data-c="${k}">
+        <span class="rar r-${r}">${r}</span>
+        ${u.icon?faceIcon(k,iconSvg(k),{cls:'zface'}):`<span class="face zface sil">${iconSvg(k)}</span>`}
+        <b>${u.icon?esc(PROFILE[k].name):'？？？'}</b><small>${esc(T[k].nm)}</small>
+        <small class="znext">${!has?'ガチャで入手':nx?`あと${nx.left}回で${nx.label}`:'全部解放'}</small>
+        ${u.ach?'<span class="zach">★</span>':''}</button>`}).join('')}</div>`;
+}
+
+/* ---- 物語 ---- */
+function renderStory(){
+  const R=M.story;
+  if(R){
+    const ch=STORY[R.ch],beat=R.i<ch.scene.length?ch.scene[R.i]:null;
+    if(beat){const [k,e]=beat,u=unlocks(k);
+      const face=u.expr?`<span class="sface">${lazyImg(ART[k].expr[e],EXPR_LABEL[e])}</span>`:u.icon?faceIcon(k,iconSvg(k),{cls:'sface'}):`<span class="face sface sil">${iconSvg(k)}</span>`;
+      return`${backBar(esc(ch.title),'story')}<div class="play" data-act="storyNext">
+        <div class="pbg">${fullbodyImg(k,{cls:'pfull'})}</div>
+        <div class="pbox">${face}<div><b>${u.icon?esc(PROFILE[k].name):'？？？'}<small>${esc(T[k].nm)}${u.expr?`・${EXPR_LABEL[e]}`:''}</small></b><p>「${esc(PROFILE[k].line)}」</p></div></div>
+        <small class="ptap">タップで次へ(${R.i+1}/${ch.scene.length})</small></div>
+        ${!u.expr?'<p class="muted center">表情はそのキャラを10回使うと解放されます</p>':''}`;
+    }
+    return`${backBar(esc(ch.title),'story')}<div class="card story"><p>${esc(ch.text)}</p></div>
+      <div class="row center">${R.ch<STORY.length-1?`<button class="btn orange" data-act="storyPlay" data-ch="${R.ch+1}">次の章へ</button>`:''}<button class="btn ghost" data-act="storyClose">章の一覧へ</button></div>`;
+  }
+  return`${backBar('物語『月夜の盤上』','collection')}
+    <div class="card story"><b>世界観</b>${WORLD.split('\n').map(x=>`<p>${esc(x)}</p>`).join('')}</div>
+    ${STORY.map((c,i)=>`<div class="card story"><b>${esc(c.title)}</b><div class="scast">${c.scene.map(([k])=>unlocks(k).icon?faceIcon(k,iconSvg(k),{cls:'mini'}):`<span class="face mini sil">${iconSvg(k)}</span>`).join('')}</div>
+      <button class="btn orange small" data-act="storyPlay" data-ch="${i}">▶ ストーリーを再生</button></div>`).join('')}
+    <p class="muted">登場キャラの顔や表情は、図鑑で解放するとストーリーにも出てきます。</p>`;
+}
+
+/* ---- 対局後の解放通知 ---- */
+function unlockNotice(news,deck){
+  const prog=(deck||[]).filter((k,i,a)=>C3KEYS.includes(k)&&a.indexOf(k)===i).map(k=>{const nx=nextLadder(k);return nx?`<span class="prg">${tile(k,{})}<small>${esc(T[k].nm)}:あと${nx.left}回で${nx.label}</small></span>`:''}).join('');
+  if(!news?.length&&!prog)return'';
+  return`<div class="card unlock${news?.length?' new':''}">${news?.length?`<b>🎉 素材が解放されました！</b><div class="unews">${news.map(n=>`<button class="un" data-act="charInfo" data-c="${n.k}">${n.what==='full'||n.what==='lux'?fullbodyImg(n.k,{cls:'unfull'}):faceIcon(n.k,iconSvg(n.k),{cls:'unface'})}<span><b>${esc(PROFILE[n.k].name)}(${esc(T[n.k].nm)})</b><small>${esc(n.label)}</small></span></button>`).join('')}</div>`:''}
+    ${prog?`<details class="uprog"${news?.length?'':' open'}><summary>キャラ素材の解放まで</summary><div class="prgs">${prog}</div></details>`:''}</div>`;
+}
+// 1局の終わりに1回だけ記録する。seat = 自分の側
+function charaEnd(G,seat,key){
+  const k='jinro-c3rec-'+key;
+  if(store.get(k)){try{return JSON.parse(store.get(k))}catch(e){return[]}}
+  const deck=(G.decks&&G.decks[seat])||[];
+  if(!deck.length){store.set(k,'[]');return[]}
+  const ev={};(G.ev||[]).forEach(x=>{if(x.p===seat)ev[x.e]=(ev[x.e]||0)+1});
+  const won=G.winner===seat;
+  const thiefWin=won&&G.board.some(row=>row.some(P=>P&&P.owner===seat&&P.orig==='thief'));
+  const news=recordGame({deck,won,ev,thiefWin});
+  store.set(k,JSON.stringify(news));
+  return news;
+}
+
 function deckAct(a,el){
   const D=M.deck,ar=D.arr;D.msg='';
   if(a==='swap'){const i=+el.dataset.i;if(D.sel&&D.sel.i!=null&&D.sel.i!==i){[ar[D.sel.i],ar[i]]=[ar[i],ar[D.sel.i]];D.sel=null}else D.sel=D.sel&&D.sel.i===i?null:{i}}
@@ -1256,7 +1383,7 @@ function render(){
   const app=document.getElementById('app');
   const ae=document.activeElement,keep=ae&&['code','pname','fcode'].includes(ae.id)?{id:ae.id,v:ae.value}:null;
   const scr=S.screen;
-  let h=scr==='local'?renderLocal():scr==='online'?renderOnline():scr==='gacha'?renderGacha():scr==='missions'?renderMissions():scr==='collection'?renderCollection():scr==='friends'?renderFriends():scr==='battle'?renderBattle():renderHome();
+  let h=scr==='local'?renderLocal():scr==='online'?renderOnline():scr==='gacha'?renderGacha():scr==='missions'?renderMissions():scr==='collection'?renderCollection():scr==='friends'?renderFriends():scr==='battle'?renderBattle():scr==='story'?renderStory():renderHome();
   const nav=showNav();if(nav)h+=navBar();app.classList.toggle('hasnav',nav);
   if(M.modal?.type==='login'&&scr!=='online'&&scr!=='local')h+=loginModal();
   if(M.modal?.type==='avatar')h+=avatarModal();
@@ -1269,7 +1396,7 @@ function render(){
   updateClocks();
 }
 async function metaAct(a,el){
-  if(a==='go'){const to=el.dataset.to;M.modal=null;M.err='';if(M.anim&&M.anim.phase==='open')M.anim=null;if(to!=='home'&&to!=='battle'&&!myName()){S.screen='home';render();return}S.screen=to;render();window.scrollTo(0,0);if(to!=='home')refreshState();return}
+  if(a==='go'){const to=el.dataset.to;if(to==='story')M.story=null;M.modal=null;M.err='';if(M.anim&&M.anim.phase==='open')M.anim=null;if(to!=='home'&&to!=='battle'&&!myName()){S.screen='home';render();return}S.screen=to;render();window.scrollTo(0,0);if(to!=='home')refreshState();return}
   if(a==='saveName')return saveName(document.getElementById('pname')?.value);
   if(a==='editName'){P.editing=true;render();return}
   if(a==='cancelName'){P.editing=false;render();return}
@@ -1283,11 +1410,19 @@ async function metaAct(a,el){
   if(a==='saveAvatar')return saveAvatar();
   if(a==='pull')return pull(+el.dataset.n);
   if(a==='gpick'){M.pick=el.dataset.id;M.err='';return render()}
-  if(a==='openCaps'||a==='skipGacha'){if(M.anim&&M.anim.results){const A=M.anim;sfxStop('gacha_lever');A.phase='open';render();sfx('capsule_open');if(A.kakutei&&!A.fanfare){A.fanfare=true;setTimeout(()=>sfx(A.kakutei==='LR'?'fanfare_lr':'fanfare_ssr'),250)}}return}
+  if(a==='heroNext'){const A=M.anim;A.hero=(A.hero+1)%heroChars(A).length;render();return}
+  if(a==='heroDone'){M.anim.hero=null;render();return}
+  if(a==='charLine'){M.modal.e=el.dataset.e||null;render();return}
+  if(a==='storyPlay'){M.story={ch:+el.dataset.ch,i:0};render();window.scrollTo(0,0);return}
+  if(a==='storyNext'){M.story.i++;render();return}
+  if(a==='storyClose'){M.story=null;render();return}
+  if(a==='avIllus'){M.modal.illus=el.checked;render();return}
+  if(a==='openCaps'||a==='skipGacha'){if(M.anim&&M.anim.results){const A=M.anim;sfxStop('gacha_lever');A.phase='open';if(heroChars(A).length)A.hero=0;render();sfx('capsule_open');if(A.kakutei&&!A.fanfare){A.fanfare=true;setTimeout(()=>sfx(A.kakutei==='LR'?'fanfare_lr':'fanfare_ssr'),250)}}return}
   if(a==='closeGacha'){M.anim=null;render();return}
   if(a==='exchange')return exchange(el.dataset.id);
   if(a==='claimMission'){try{const r=await rpc('jinro_claim_mission',{p_mission:el.dataset.id});M.st.coins=r.coins;M.st.claimed.push(el.dataset.id);toast('+10コイン')}catch(e){M.err=e.message;render()}return}
   if(a==='tab'){M.tab=el.dataset.tab;render();return}
+  if(a==='zukan'){M.tab='zukan';S.screen='collection';render();window.scrollTo(0,0);refreshState();return}
   if(a==='mtab'){M.mtab=el.dataset.tab;M.err='';render();return}
   if(a==='claimAch')return claimAch(el.dataset.id);
   if(a==='equip')return equip(el.dataset.slot,el.dataset.id);
@@ -1297,7 +1432,7 @@ async function metaAct(a,el){
   if(a==='inviteFriend')return inviteFriend(el.dataset.uid);
   if(a==='acceptInvite'){S.screen='online';render();return joinRoom(el.dataset.code)}
 }
-const META=new Set(['charInfo','gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
+const META=new Set(['zukan','heroNext','heroDone','charLine','storyPlay','storyNext','storyClose','avIllus','charInfo','gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
 document.getElementById('app').addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const a=el.dataset.act;
   if(a==='home'){const wasGame=S.screen==='online'||S.screen==='local';if(S.screen==='online')leaveRoom(true);S.screen=wasGame?'battle':'home';render();refreshState();window.scrollTo(0,0);return}
