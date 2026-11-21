@@ -676,3 +676,5 @@ body{background:#140c3c}
 .bubble.react{padding:4px;background:#fff}
 .bubble.react img{width:56px;height:56px;object-fit:contain;display:block;animation:wiggle .6s ease-in-out 2}
 @keyframes wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
+.play .fullbody .lockmark{inset:30% 0 auto}
+.un span b{color:var(--ink)}
