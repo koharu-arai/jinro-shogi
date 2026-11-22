@@ -600,7 +600,7 @@ async function recordResult(g){
 function localNew(cpu=null){L={cpu,phase:'rules',rules:{...DEFAULT_RULES},cover:{p:0,next:'setup'},setup:[savedDeck(),savedDeck()],setupP:0,sel:null,msg:'',G:null,byo:BYO,out:null,notice:'',noticeAlert:false,resignArm:false}}
 function localEnd(out){L.sel=null;L.byo=BYO;if(L.G.winner!=null)L.phase='over';else{L.out=out;L.phase='result'}}
 const localLooks=()=>[myLook(),{}];
-const pName=p=>L&&L.cpu?(p===0?'あなた':'CPU'):NAME[p];
+const pName=p=>L&&L.cpu?(p===0?'あなた':(L.cpu.name||'CPU')):NAME[p];
 // CPUの手番:少し考えてから指す
 function cpuTurn(){
   const my=L;if(!my||!my.cpu||!my.G||my.G.winner!=null||my.G.turn!==1||my.phase!=='play')return;
@@ -623,6 +623,10 @@ function cpuTurn(){
 }
 async function cpuOver(){
   L.phase='over';L.sel=null;L.thinking=false;render();
+  if(L.cpu.story!=null){
+    if(L.G.winner===0)L.cpu.expRes=await storyClear(L.cpu.story);
+    render();return;
+  }
   if(!L.cpu.game)return;
   if(L.G.winner===0){
     try{const r=await rpc('jinro_cpu_win',{p_game:L.cpu.game});L.cpu.reward=r.reward;L.cpu.today=r.today;L.cpu.expRes=r;if(M.st)M.st.coins=r.coins}
@@ -634,10 +638,11 @@ async function cpuOver(){
   render();
 }
 async function cpuStartServer(){
-  const my=L;try{const r=await rpc('jinro_cpu_start',{p_level:my.cpu.level});my.cpu.game=r.game;my.cpu.today=r.today}catch(e){my.cpu.game=null}
+  const my=L;if(my.cpu.story!=null)return;
+  try{const r=await rpc('jinro_cpu_start',{p_level:my.cpu.level});my.cpu.game=r.game;my.cpu.today=r.today}catch(e){my.cpu.game=null}
 }
 function renderLocal(){
-  if(L.phase==='rules')return`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 class="ttlh">${L.cpu?`CPU対戦・${CPU_LV[L.cpu.level].nm}`:'1台で対戦'}</h2></div>${L.cpu?`<div class="card"><b>勝つと ${CPU_LV[L.cpu.level].coin}コイン</b><p class="muted">あなたが先手です。コインは1日50枚まで、開始から20秒以上たって勝ったときにもらえます。経験値は勝つと+${EXP_GAIN.cpuWin[L.cpu.level]}、負けても+${EXP_GAIN.cpuLose}もらえます(戦績には入りません)。</p></div>`:''}${rulesCard(L.rules,true,true)}<button class="btn orange" data-act="localStart">配置へ進む</button>${rulesHTML()}`;
+  if(L.phase==='rules')return`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 class="ttlh">${L.cpu?(L.cpu.story!=null?`メインストーリー対戦`:`CPU対戦・${CPU_LV[L.cpu.level].nm}`):'1台で対戦'}</h2></div>${L.cpu?(L.cpu.story!=null?`<div class="card"><b>${esc(STORY[L.cpu.story].title)} ― 相手は${esc(L.cpu.name)}</b><p class="muted">あなたが先手です。勝つとこの章をクリアできます。初回クリアで経験値+${L.cpu.story===STORY.length-1?300:100}がもらえます(負けたときの経験値やコインはありません)。何度でも挑戦できます。</p></div>`:`<div class="card"><b>勝つと ${CPU_LV[L.cpu.level].coin}コイン</b><p class="muted">あなたが先手です。コインは1日50枚まで、開始から20秒以上たって勝ったときにもらえます。経験値は勝つと+${EXP_GAIN.cpuWin[L.cpu.level]}、負けても+${EXP_GAIN.cpuLose}もらえます(戦績には入りません)。</p></div>`):''}${rulesCard(L.rules,true,true)}<button class="btn orange" data-act="localStart">配置へ進む</button>${rulesHTML()}`;
   if(L.phase==='cover'){
     const p=L.cover.p,setup=L.cover.next==='setup';
     return`<div class="cover"><h2>${NAME[p]}の番</h2><p>${setup?`${NAME[p]}が駒の配置を決めます。相手に画面を見せないでください。`:`スマホを${NAME[p]}に渡してください。`}</p><button class="btn orange" data-act="uncover">${NAME[p]}です。画面を開く</button><button class="btn ghost small" data-act="home">ホームに戻る</button></div>`;
@@ -649,10 +654,10 @@ function renderLocal(){
   }
   const G=L.G;
   if(L.phase==='over'){
-    const cr=L.cpu,rw=(cr&&G.winner===0?(cr.reward!=null?`<div class="card reward"><b>${cr.reward>0?`+${cr.reward}コイン獲得！`:'今日のCPU戦コインは上限(50枚)に達しました'}</b><small class="muted">今日のCPU戦 ${cr.today??0}/50コイン</small></div>`:cr.rewardErr?`<p class="muted">${esc(cr.rewardErr==='開始から20秒以上たってから勝つとコインがもらえます。'?cr.rewardErr:'コインは受け取れませんでした('+cr.rewardErr+')')}</p>`:cr.game?'<p class="muted">コインを受け取っています…</p>':'<p class="muted">名前を決めてオンラインにつながると、勝ったときにコインがもらえます。</p>'):'')+(cr&&cr.expRes?expCard(cr.expRes,'CPU戦の経験値'):'');
+    const cr=L.cpu,rw=(cr&&cr.story==null&&G.winner===0?(cr.reward!=null?`<div class="card reward"><b>${cr.reward>0?`+${cr.reward}コイン獲得！`:'今日のCPU戦コインは上限(50枚)に達しました'}</b><small class="muted">今日のCPU戦 ${cr.today??0}/50コイン</small></div>`:cr.rewardErr?`<p class="muted">${esc(cr.rewardErr==='開始から20秒以上たってから勝つとコインがもらえます。'?cr.rewardErr:'コインは受け取れませんでした('+cr.rewardErr+')')}</p>`:cr.game?'<p class="muted">コインを受け取っています…</p>':'<p class="muted">名前を決めてオンラインにつながると、勝ったときにコインがもらえます。</p>'):'')+(cr&&cr.expRes?expCard(cr.expRes,cr.story!=null?'ストーリークリアの経験値':'CPU戦の経験値'):'');
     if(cr&&!L.c3)L.c3=charaEnd(G,0,'cpu-'+(L.c3key||(L.c3key=Date.now())));
-    return`<section class="hero"><h1 class="over-h">${cr?(G.winner===0?'あなたの勝ち！':'CPUの勝ち'):NAME[G.winner]+'の勝ち'}</h1><p>${esc(G.reason)}。すべての駒を公開しています。</p></section>${rw}${cr?unlockNotice(L.c3,G.decks?.[0]):''}
-      ${boardHTML(G,0,{reveal:true,looks:localLooks()})}<div class="row"><button class="btn orange" data-act="localAgain">もう一度遊ぶ</button><button class="btn ghost" data-act="home">ホームへ</button></div>`;
+    return`<section class="hero"><h1 class="over-h">${cr?(cr.story!=null?(G.winner===0?`${esc(cr.name)}を倒した！`:`${esc(cr.name)}に負けた…`):(G.winner===0?'あなたの勝ち！':'CPUの勝ち')):NAME[G.winner]+'の勝ち'}</h1><p>${esc(G.reason)}。すべての駒を公開しています。</p></section>${rw}${cr&&cr.story!=null&&G.winner===0?'<div class="card reward"><b>章をクリアしました！</b><p class="muted">物語の章一覧で、次の章が解放されています。</p></div>':''}${cr?unlockNotice(L.c3,G.decks?.[0]):''}
+      ${boardHTML(G,0,{reveal:true,looks:localLooks()})}<div class="row"><button class="btn orange" data-act="localAgain">もう一度遊ぶ</button>${cr&&cr.story!=null?'<button class="btn ghost" data-act="go" data-to="story">物語へ戻る</button>':''}<button class="btn ghost" data-act="home">ホームへ</button></div>`;
   }
   const v=L.cpu?0:G.turn,op=1-v,play=L.phase==='play'&&!(L.cpu&&G.turn===1);
   const again=!play&&L.out&&L.out.same;
@@ -678,7 +683,7 @@ function localAct(a,el){
   else if(a==='pick'){L.msg=pickInto(L.setup[L.setupP],L.sel?.i,el.dataset.t);if(!L.msg)L.sel=null}
   else if(a==='preset'){L.setup[L.setupP]=PRESETS[+el.dataset.k].a.slice();L.sel=null}
   else if(a==='shuffle'){shuffle(L.setup[L.setupP]);L.sel=null}
-  else if(a==='confirm'&&L.cpu){L.sel=null;L.msg='';L.setup[1]=cpuDeck(L.cpu.level,L.rules);L.G=newGame(L.setup,L.rules);L.notice='対局開始。あなたが先手です。';L.noticeAlert=false;L.phase='play';lastT=null}
+  else if(a==='confirm'&&L.cpu){L.sel=null;L.msg='';L.setup[1]=L.cpu.story!=null?fitDeck(STORY_BATTLE[L.cpu.story].deck.slice(),L.rules.chars?NEWC:[]):cpuDeck(L.cpu.level,L.rules);L.G=newGame(L.setup,L.rules);L.notice='対局開始。あなたが先手です。';L.noticeAlert=false;L.phase='play';lastT=null}
   else if(a==='confirm'){L.sel=null;L.msg='';if(L.setupP===0){L.setupP=1;L.cover={p:1,next:'setup'}}else{L.G=newGame(L.setup,L.rules);L.notice='対局開始。先手から指します。';L.noticeAlert=false;L.cover={p:0,next:'play'}}L.phase='cover'}
   else if(a==='hand'){const i=+el.dataset.i;L.sel=L.sel&&L.sel.hand===i?null:{hand:i}}
   else if(a==='bite'){if(L.sel)L.sel={r:L.sel.r,c:L.sel.c,ab:!L.sel.ab}}
@@ -693,7 +698,7 @@ function localAct(a,el){
   }
   else if(a==='pass'){const G=L.G;const n=nextTurn(G);const same=n===G.turn;G.turn=n;L.notice=same?'てるてるの力で、もう1手続けて指せます(移動だけ。駒は取れません)。':L.out.note;L.noticeAlert=!!L.out.alert;if(same){L.phase='play'}else{L.cover={p:G.turn,next:'play'};L.phase='cover'}}
   else if(a==='resign'){if(L.resignArm){if(L.cpu){L.G.winner=1;L.G.reason='あなたが投了しました';cpuOver()}else{L.G.winner=1-L.G.turn;L.G.reason=`${NAME[L.G.turn]}が投了しました`;L.phase='over'}}else L.resignArm=true}
-  else if(a==='localAgain')localNew(L.cpu?{level:L.cpu.level}:null);
+  else if(a==='localAgain')localNew(L.cpu?{level:L.cpu.level,story:L.cpu.story,name:L.cpu.name}:null);
 }
 
 /* ===== online mode (Supabase) ===== */
@@ -1059,8 +1064,8 @@ function renderHome(){
     <button class="feature story-feat" data-act="go" data-to="story">
       <span class="ftag">メインストーリー</span>
       <b class="fname">物語『月夜の盤上』</b>
-      <small class="fdesc">全${STORY.length}章の物語。章を最後まで読むと、初回だけ経験値がもらえます。</small>
-      <span class="fgo">物語を読む ›</span>
+      <small class="fdesc">対戦で勝ち進む全${STORY.length}章の物語。クリアすると次の章が解放され、初回クリアで経験値がもらえます。</small>
+      <span class="fgo">物語へ ›</span>
     </button>
     <button class="feature b-${bk}" data-act="go" data-to="gacha">
       <span class="ftag">${bk==='S'?'日曜限定':'本日のガチャ'}</span>
@@ -1490,15 +1495,25 @@ function zukanHTML(){
 }
 
 /* ---- 物語 ---- */
-// ストーリーの章を最後まで読んだら、初回だけサーバー経由で経験値が入る
+// メインストーリーの対戦相手(章ごと)。deck は [前列3枚, 後列3枚] で王様は後列
+const STORY_BATTLE=[
+  {lv:'easy',  boss:'騎士セラ',   deck:['wolf','villager','seer','hunter','knight','king']},
+  {lv:'normal',boss:'人狼ガロ',   deck:['wolf','tough','hunter','villager','knight','king']},
+  {lv:'hard',  boss:'呪いの影',   deck:['wolf','fox','vampire','cursed','thief','king']},
+];
+const storyStage=ch=>'ch'+(ch+1);
+const storyCleared=ch=>!!(M.st?.story_clears?.includes(storyStage(ch))||store.get('jinro-story-'+storyStage(ch)));
+const storyUnlocked=ch=>ch===0||storyCleared(ch-1);
+// ストーリー対戦に勝ったら、初回だけサーバー経由で経験値が入る
 async function storyClear(ch){
-  const stage='ch'+(ch+1),key=`jinro-story-${stage}`;
-  if(P.storyClear.has(stage)||store.get(key))return;
+  const stage=storyStage(ch),key=`jinro-story-${stage}`;
+  if(P.storyClear.has(stage)||store.get(key))return null;
   P.storyClear.add(stage);
   try{
     const r=await rpc('jinro_story_clear',{p_stage:stage});store.set(key,'1');
-    if(r&&r.exp_gain>0){M.storyExp={...r};toast(`ストーリークリア！ +${r.exp_gain}経験値${r.level_after>r.level_before?`・レベルアップして Lv.${r.level_after} ${lvRankName(r.level_after)}に！`:''}`);refreshState()}
-  }catch(e){P.storyClear.delete(stage)}
+    if(r&&r.exp_gain>0){toast(`ストーリークリア！ +${r.exp_gain}経験値${r.level_after>r.level_before?`・レベルアップして Lv.${r.level_after} ${lvRankName(r.level_after)}に！`:''}`);refreshState()}
+    return r;
+  }catch(e){P.storyClear.delete(stage);return null}
 }
 function renderStory(){
   const R=M.story;
@@ -1512,16 +1527,16 @@ function renderStory(){
         <small class="ptap">タップで次へ(${R.i+1}/${ch.scene.length})</small></div>
         ${!u.expr?'<p class="muted center">表情はそのキャラを手に入れると解放されます</p>':''}`;
     }
-    storyClear(R.ch);
+    const cl=storyCleared(R.ch);
     return`${backBar(esc(ch.title),'story')}<div class="card story"><p>${esc(ch.text)}</p></div>
-      ${M.storyExp&&M.storyExp.stage==='ch'+(R.ch+1)?expCard(M.storyExp,'ストーリークリアの経験値'):''}
-      <div class="row center">${R.ch<STORY.length-1?`<button class="btn orange" data-act="storyPlay" data-ch="${R.ch+1}">次の章へ</button>`:''}<button class="btn ghost" data-act="storyClose">章の一覧へ</button></div>`;
+      ${cl?'<div class="card reward"><b>この章はクリア済みです</b></div>':`<div class="card"><b>この章の対戦</b><p class="muted">相手は${esc(STORY_BATTLE[R.ch].boss)}。勝つとこの章をクリアでき、初回クリアで経験値+${R.ch===STORY.length-1?300:100}がもらえます。</p></div>`}
+      <div class="row center"><button class="btn orange" data-act="storyBattle" data-ch="${R.ch}">⚔️ ${cl?'もう一度対戦する':'この章の対戦へ'}</button>${R.ch<STORY.length-1&&storyUnlocked(R.ch+1)?`<button class="btn ghost" data-act="storyPlay" data-ch="${R.ch+1}">次の章へ</button>`:''}<button class="btn ghost" data-act="storyClose">章の一覧へ</button></div>`;
   }
   return`${backBar('物語『月夜の盤上』','collection')}
     <div class="card story"><b>世界観</b>${WORLD.split('\n').map(x=>`<p>${esc(x)}</p>`).join('')}</div>
-    ${STORY.map((c,i)=>`<div class="card story"><b>${esc(c.title)}</b><div class="scast">${c.scene.map(([k])=>unlocks(k).icon?faceIcon(k,iconSvg(k),{cls:'mini'}):`<span class="face mini sil">${iconSvg(k)}</span>`).join('')}</div>
-      <button class="btn orange small" data-act="storyPlay" data-ch="${i}">▶ ストーリーを再生</button></div>`).join('')}
-    <p class="muted">登場キャラの顔や表情は、図鑑で解放するとストーリーにも出てきます。</p>`;
+    ${STORY.map((c,i)=>{const un=storyUnlocked(i),cl=storyCleared(i);return`<div class="card story${un?'':' locked'}"><b>${esc(c.title)}</b>${cl?'<span class="badge turn">クリア済み</span>':un?'':'<span class="badge">🔒 ロック中</span>'}<div class="scast">${c.scene.map(([k])=>unlocks(k).icon?faceIcon(k,iconSvg(k),{cls:'mini'}):`<span class="face mini sil">${iconSvg(k)}</span>`).join('')}</div>
+      ${un?`<div class="row"><button class="btn ghost small" data-act="storyPlay" data-ch="${i}">▶ 物語を読む</button><button class="btn orange small" data-act="storyBattle" data-ch="${i}">⚔️ 対戦する（相手：${esc(STORY_BATTLE[i].boss)}）</button></div>`:'<p class="muted">前の章の対戦に勝つと解放されます。</p>'}</div>`}).join('')}
+    <p class="muted">章は順番に解放されます。対戦に勝つとクリアで、次の章が見られるようになります。登場キャラの顔や表情は、図鑑で解放するとストーリーにも出てきます。</p>`;
 }
 
 /* ---- 対局後の解放通知 ---- */
@@ -1592,7 +1607,8 @@ async function metaAct(a,el){
   if(a==='heroNext'){const A=M.anim;A.hero=(A.hero+1)%heroChars(A).length;render();return}
   if(a==='heroDone'){M.anim.hero=null;render();return}
   if(a==='charLine'){M.modal.e=el.dataset.e||null;render();return}
-  if(a==='storyPlay'){M.story={ch:+el.dataset.ch,i:0};render();window.scrollTo(0,0);return}
+  if(a==='storyPlay'){const ch=+el.dataset.ch;if(!storyUnlocked(ch))return;M.story={ch,i:0};render();window.scrollTo(0,0);return}
+  if(a==='storyBattle'){const ch=+el.dataset.ch;if(!storyUnlocked(ch))return;M.story=null;localNew({level:STORY_BATTLE[ch].lv,story:ch,name:STORY_BATTLE[ch].boss});S.screen='local';render();window.scrollTo(0,0);return}
   if(a==='storyNext'){M.story.i++;render();return}
   if(a==='storyClose'){M.story=null;render();return}
   if(a==='avIllus'){M.modal.illus=el.checked;render();return}
@@ -1611,7 +1627,7 @@ async function metaAct(a,el){
   if(a==='inviteFriend')return inviteFriend(el.dataset.uid);
   if(a==='acceptInvite'){S.screen='online';render();return joinRoom(el.dataset.code)}
 }
-const META=new Set(['artTap','zukan','heroNext','heroDone','charLine','storyPlay','storyNext','storyClose','avIllus','charInfo','artStyle','gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
+const META=new Set(['artTap','zukan','heroNext','heroDone','charLine','storyPlay','storyNext','storyClose','storyBattle','avIllus','charInfo','artStyle','gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
 document.getElementById('app').addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const a=el.dataset.act;
   if(a==='home'){const wasGame=S.screen==='online'||S.screen==='local';if(S.screen==='online')leaveRoom(true);S.screen=wasGame?'battle':'home';render();refreshState();window.scrollTo(0,0);return}

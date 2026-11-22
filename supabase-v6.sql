@@ -259,5 +259,47 @@ begin
   end if;
 end $$;
 
+-- ========== 状態にストーリーのクリア状況を追加(章の解放判定用) ==========
+create or replace function public.jinro_state(p_uid text, p_secret text) returns json
+language plpgsql security definer set search_path = public as $$
+declare w jinro_wallets; pl jinro_players; d date := jinro_today(); res json;
+begin
+  perform jinro_auth(p_uid, p_secret);
+  select * into w from jinro_wallets where uid = p_uid;
+  update jinro_players set last_seen = now(),
+    friend_code = coalesce(friend_code, jinro_gen_code()) where uid = p_uid;
+  select * into pl from jinro_players where uid = p_uid;
+  select json_build_object(
+    'coins', w.coins, 'tokens', w.tokens, 'streak', w.streak, 'banner', jinro_banner(), 'welcomed', w.welcomed,
+    'exp', w.exp, 'level', jinro_level(w.exp),
+    'story_clears', coalesce((select json_agg(stage) from jinro_story_clears where uid = p_uid), '[]'::json),
+    'login_claimable', (w.last_login is null or w.last_login < d),
+    'name', pl.name, 'title', pl.title, 'avatar', pl.avatar, 'look', coalesce(pl.look, '{}'::jsonb), 'friend_code', pl.friend_code,
+    'items', coalesce((select json_agg(item order by created_at) from jinro_inventory where uid = p_uid), '[]'::json),
+    'missions', json_build_object(
+      'm_play',  (select count(*) from jinro_results where uid = p_uid and (created_at at time zone 'Asia/Tokyo')::date = d),
+      'm_win',   (select count(*) from jinro_results where uid = p_uid and win and (created_at at time zone 'Asia/Tokyo')::date = d),
+      'm_stamp', (select count(*) from jinro_chat where uid = p_uid and (created_at at time zone 'Asia/Tokyo')::date = d)),
+    'claimed', coalesce((select json_agg(mission) from jinro_mission_claims where uid = p_uid and day = d), '[]'::json),
+    'stats', jinro_stats(p_uid),
+    'ach_claimed', coalesce((select json_agg(ach) from jinro_ach_claims where uid = p_uid), '[]'::json),
+    'friends', coalesce((
+      select json_agg(json_build_object(
+        'uid', o.uid, 'name', p.name, 'title', p.title, 'avatar', p.avatar, 'exp', coalesce(p.exp, 0), 'status', f.status, 'incoming', (f.status = 'pending' and f.requested_by <> p_uid),
+        'last_seen', p.last_seen,
+        'w', (select count(*) from jinro_results r where r.uid = o.uid and r.win),
+        'n', (select count(*) from jinro_results r where r.uid = o.uid)) order by f.status, p.name)
+      from jinro_friends f
+      cross join lateral (select case when f.a = p_uid then f.b else f.a end as uid) o
+      left join jinro_players p on p.uid = o.uid
+      where f.a = p_uid or f.b = p_uid), '[]'::json),
+    'invites', coalesce((
+      select json_agg(json_build_object('id', i.id, 'from', i.from_uid, 'name', p.name, 'code', i.code, 'at', i.created_at) order by i.created_at desc)
+      from jinro_invites i left join jinro_players p on p.uid = i.from_uid
+      where i.to_uid = p_uid and i.created_at > now() - interval '15 minutes'), '[]'::json)
+  ) into res;
+  return res;
+end $$;
+
 -- 確認用
 select uid, name, exp from public.jinro_players where exp > 0 order by exp desc limit 10;

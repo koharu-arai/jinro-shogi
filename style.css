@@ -428,6 +428,7 @@ input.namein,input.codein,input{background:rgba(10,6,40,.45);border:1px solid va
   background:radial-gradient(80% 90% at 100% 0%,rgba(255,200,120,.35),transparent 60%),linear-gradient(135deg,#5b2fa0,#2b1b6e);box-shadow:0 14px 30px rgba(10,6,40,.35)}
 .feature.b-B{background:radial-gradient(80% 90% at 100% 0%,rgba(255,90,120,.45),transparent 60%),linear-gradient(135deg,#7a1f4f,#2b1240)}
 .feature.story-feat{background:radial-gradient(80% 90% at 100% 0%,rgba(160,220,255,.4),transparent 60%),linear-gradient(135deg,#14406b,#0d1b3e)}
+.card.story.locked{opacity:.55}
 .feature.b-S{background:radial-gradient(80% 90% at 100% 0%,rgba(120,255,220,.35),transparent 60%),linear-gradient(135deg,#17607a,#1d1c5e)}
 .ftag{font-size:11px;font-weight:800;letter-spacing:.2em;color:var(--gold2)}
 .fname{font-family:var(--font-m);font-size:24px;letter-spacing:.06em}
