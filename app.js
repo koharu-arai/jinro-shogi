@@ -1,6 +1,6 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 import { ART, KEYS as C3KEYS, LR_KEYS, PROFILE, STORY, WORLD, LADDER, CHARA_ACH, EXPR_LABEL, unlocks, nextLadder, recordGame, faceIcon, fullbodyImg, lazyImg, artStyle, setArtStyle, setOwnedChars } from "./chara3.js";
-import { CHARS, BANNERS, bannerOfDay, BASE_RARITY, EXP, RANKS, ITEMS, ITEM, ACH_ITEMS, ACHIEVEMENTS, DEFAULT_STAMPS, MISSIONS, RATES, REFUND, TOKEN_REFUND, TOKEN_COST, COST, RARITY_LABEL, RARITY_ORDER, KIND_LABEL, LOGIN } from "./catalog.js";
+import { CHARS, BANNERS, bannerOfDay, BASE_RARITY, EXP_GAIN, levelOf, lvProgress, lvRankName, pieceRankOfLv, LV_MILESTONES, ITEMS, ITEM, ACH_ITEMS, ACHIEVEMENTS, DEFAULT_STAMPS, MISSIONS, RATES, REFUND, TOKEN_REFUND, TOKEN_COST, COST, RARITY_LABEL, RARITY_ORDER, KIND_LABEL, LOGIN } from "./catalog.js";
 
 /* ===== rules data ===== */
 const BASE = ['king','wolf','villager','seer','hunter','knight'];
@@ -453,16 +453,19 @@ function pickInto(arr,sel,t){
   if(arr.includes(t))return'同じ駒は1枚までです。';
   arr[sel]=t;return'';
 }
+function levelCard(){
+  const exp=M.st?.exp||0,pr=lvProgress(exp),rk=pieceRankOfLv(pr.lv),look=myLook();
+  return`<div class="card rankcard"><div class="row"><b>プレイヤーレベル</b><span class="spacer"></span><span class="lvtag big">Lv.${pr.lv} ${lvRankName(pr.lv)}</span></div>
+    <span class="expbar static"><i style="--p0:${pr.pct}%;--p1:${pr.pct}%"></i></span>
+    <small class="muted">${pr.lv>=99?'最高レベルに到達！':`次のレベルまで あと${pr.need-pr.into}経験値(今 ${pr.into}/${pr.need})`}・累計 ${exp}経験値</small>
+    <p class="muted">経験値は、オンライン対戦(勝ち+${EXP_GAIN.onlineWin}・負け+${EXP_GAIN.onlineLose})、CPU戦(勝ち 難易度で+10〜30・負け+${EXP_GAIN.cpuLose})、ストーリーの初回クリア(+${EXP_GAIN.story}、最終章は+${EXP_GAIN.storyBoss})でもらえます。レベルアップで毎回+50コイン、Lv${LV_MILESTONES.join('・')}では称号と枠、特別コインがもらえます。</p>
+    <div class="rkrow"><div class="bp">${tile('king',{look})}<span class="rar r-${rk}">${rk}</span></div><div class="bp">${tile('wolf',{look})}<span class="rar r-${rk}">${rk}</span></div>
+      <p class="muted">王様と人狼の光り方はレベル連動です(Lv5でR、15でSR、30でSSR、50でLR)。</p></div></div>`;
+}
 function rankCard(){
-  const R=rankOf(M.st?.stats),look=myLook(),nx=R.next;
-  const pct=nx?Math.min(100,(R.exp-R.cur.exp)/(nx.exp-R.cur.exp)*100):100;
-  const need=nx?`次の${nx.r}まで あと${Math.max(0,nx.exp-R.exp)}経験値${nx.wr?`・勝率${nx.wr}%以上`:''}`:'最高ランクに到達！';
+  const look=myLook();
   const base=Object.entries(BASE_RARITY).map(([t,r])=>`<div class="bp">${tile(t,{look})}<span class="rar r-${r}">${r}</span></div>`).join('');
-  return`<div class="card rankcard"><div class="row"><b>王様・人狼のランク</b><span class="spacer"></span><span class="rar big r-${R.r}">${R.r}</span></div>
-    <div class="rkrow"><div class="bp">${tile('king',{look})}<span class="rar r-${R.r}">${R.r}</span></div><div class="bp">${tile('wolf',{look})}<span class="rar r-${R.r}">${R.r}</span></div>
-      <div class="rkinfo"><span class="qbar"><i style="width:${pct}%"></i></span><small>経験値 ${R.exp}・勝率 ${R.wr}%</small><small class="need">${need}</small></div></div>
-    <p class="muted">対戦するほど経験値がたまり(勝ち+${EXP.win}・負け+${EXP.lose})、C→R→SR→SSR→LRと昇格します。SSRは勝率${RANKS[3].wr}%以上、LRは勝率${RANKS[4].wr}%以上が条件。ランクが上がると、王様と人狼の駒が光ります。</p>
-    <b class="left">初期の駒</b><div class="rkrow">${base}</div></div>`;
+  return`${levelCard()}<div class="card rankcard"><b class="left">初期の駒</b><div class="rkrow">${base}</div></div>`;
 }
 // デフォルト編成(コレクションの「編成」で変更。端末に保存)
 function validDeck(a){return Array.isArray(a)&&a.length===6&&a.every(t=>T[t])&&a.filter(t=>t==='king').length===1&&a.filter(t=>t==='wolf').length===1&&new Set(a).size===6}
@@ -507,19 +510,29 @@ function getSecret(){
 }
 const myName=()=>store.get('jinro-name')||'';
 // 王様・人狼のランク(経験値＋勝率で昇格)
-function rankOf(stats){
-  const w=stats?.wins||0,n=stats?.games||0,exp=w*EXP.win+(n-w)*EXP.lose,wr=n?Math.round(w/n*100):0;
-  let k=0;RANKS.forEach((x,i)=>{if(exp>=x.exp&&wr>=x.wr)k=i});
-  return{r:RANKS[k].r,exp,wr,next:RANKS[k+1]||null,cur:RANKS[k]};
-}
-const myLook=()=>({...(M.st?.look||{}),rk:rankOf(M.st?.stats).r});
-const rarOf=t=>(t==='king'||t==='wolf')?rankOf(M.st?.stats).r:CHAR_ITEM[t]?.rarity||BASE_RARITY[t]||'C';
+// 王様・人狼の光り方はプレイヤーレベルに一本化(Lv5でR、15でSR、30でSSR、50でLR)
+const myLv=()=>levelOf(M.st?.exp||0);
+const myLook=()=>({...(M.st?.look||{}),rk:pieceRankOfLv(myLv())});
+const rarOf=t=>(t==='king'||t==='wolf')?pieceRankOfLv(myLv()):CHAR_ITEM[t]?.rarity||BASE_RARITY[t]||'C';
 const owned=()=>new Set(M.st?.items||[]);
 const ownedChars=()=>NEWC.filter(k=>owned().has(CHAR_ITEM[k].id));
 const myStamps=()=>[...DEFAULT_STAMPS,...ITEMS.filter(i=>i.kind==='stamp'&&owned().has(i.id))];
-const P={names:{},titles:{},avatars:{},stats:{},editing:false,recorded:new Set()};
+const P={names:{},titles:{},avatars:{},stats:{},exp:{},editing:false,recorded:new Set(),storyClear:new Set()};
 const nameOf=(uid,fb)=>P.names[uid]||fb;
 function statText(uid){const st=P.stats[uid];if(!st||!st.n)return'戦績なし';return`勝率 ${Math.round(st.w/st.n*100)}%・${st.n}戦${st.w}勝`}
+const expOf=uid=>uid===O.uid&&M.st?M.st.exp||0:P.exp[uid]||0;
+const lvTag=uid=>{if(!uid)return'';const lv=levelOf(expOf(uid));return`<span class="lvtag">Lv.${lv} ${lvRankName(lv)}</span>`};
+// 経験値が増えたときの結果カード(結果画面用)。r はRPCの返り値(exp_gain / level_before / level_after / coins_gain / milestones)
+function expCard(r,label){
+  if(!r||r.exp_gain==null)return'';
+  const b=lvProgress((r.exp||0)-r.exp_gain),a=lvProgress(r.exp||0),up=r.level_after>r.level_before;
+  const bar=up?`<span class="expbar"><i style="--p0:${b.pct}%;--p1:100%"></i></span><span class="expbar"><i style="--p0:0%;--p1:${a.pct}%"></i></span>`
+    :`<span class="expbar"><i style="--p0:${b.pct}%;--p1:${a.pct}%"></i></span>`;
+  const ms=(r.milestones||[]).map(m=>`<p class="lvms">🎁 Lv${m}到達報酬：称号「${lvRankName(m)}」と${lvRankName(m)}の枠、特別コイン+1 を手に入れました！</p>`).join('');
+  return`<div class="card expcard"><div class="row"><b>${label||'経験値'} +${r.exp_gain}</b><span class="spacer"></span><span class="lvtag">Lv.${a.lv} ${lvRankName(a.lv)}</span></div>
+    ${bar}<small class="muted">${a.lv>=99?'最高レベルです':`次のレベルまで あと${a.need-a.into}経験値`}</small>
+    ${up?`<p class="lvup">🎉 レベルアップ！ Lv.${r.level_after} ${lvRankName(r.level_after)}になりました${r.coins_gain?`(+${r.coins_gain}コイン)`:''}</p>`:''}${ms}</div>`;
+}
 const AV_BG=['#ff6f93','#ff9f1c','#3f86f0','#22b573','#a855f7','#1d2232','#f5b82e','#8b93a7'];
 const avOf=uid=>P.avatars[uid]||(uid===O.uid?localAvatar():null)||{c:'wolf',bg:0};
 // アイコン。av.s = 'img'(顔イラスト) / 'gold'(金フレーム) / 'lux'(LRの豪華版)。未設定は駒のSVG
@@ -567,11 +580,10 @@ async function saveName(raw){
 }
 async function loadPeople(uids){
   uids=[...new Set(uids.filter(Boolean))];if(!sb||!uids.length)return;
-  const [a,b]=await Promise.all([
-    sb.from('jinro_players').select('uid,name,title,avatar').in('uid',uids),
-    sb.from('jinro_results').select('uid,win').in('uid',uids)
-  ]);
-  (a.data||[]).forEach(r=>{P.names[r.uid]=r.name;P.titles[r.uid]=r.title;if(r.avatar)P.avatars[r.uid]=r.uid===O.uid?mergeAvatar(r.avatar):r.avatar});
+  let a=await sb.from('jinro_players').select('uid,name,title,avatar,exp').in('uid',uids);
+  if(a.error)a=await sb.from('jinro_players').select('uid,name,title,avatar').in('uid',uids);
+  const b=await sb.from('jinro_results').select('uid,win').in('uid',uids);
+  (a.data||[]).forEach(r=>{P.names[r.uid]=r.name;P.titles[r.uid]=r.title;P.exp[r.uid]=r.exp||0;if(r.avatar)P.avatars[r.uid]=r.uid===O.uid?mergeAvatar(r.avatar):r.avatar});
   const st={};uids.forEach(u=>st[u]={w:0,n:0});
   (b.data||[]).forEach(r=>{st[r.uid].n++;if(r.win)st[r.uid].w++});
   Object.assign(P.stats,st);render();
@@ -580,7 +592,7 @@ async function recordResult(g){
   const key=`jinro-rec-${O.uid}-${O.code}-${g.startNo}`;
   if(P.recorded.has(key)||store.get(key))return;
   P.recorded.add(key);
-  try{await rpc('jinro_record_result',{p_code:O.code,p_game_no:g.startNo});store.set(key,'1')}catch(e){P.recorded.delete(key)}
+  try{const r=await rpc('jinro_record_result',{p_code:O.code,p_game_no:g.startNo});store.set(key,'1');if(r&&r.exp_gain!=null)O.expRes={key:`${O.code}-${g.startNo}`,...r}}catch(e){P.recorded.delete(key)}
   loadPeople([O.players[0]?.uid,O.players[1]?.uid,O.uid]);refreshState();
 }
 
@@ -611,16 +623,21 @@ function cpuTurn(){
 }
 async function cpuOver(){
   L.phase='over';L.sel=null;L.thinking=false;render();
-  if(L.G.winner!==0||!L.cpu.game)return;
-  try{const r=await rpc('jinro_cpu_win',{p_game:L.cpu.game});L.cpu.reward=r.reward;L.cpu.today=r.today;if(M.st)M.st.coins=r.coins}
-  catch(e){L.cpu.rewardErr=e.message}
+  if(!L.cpu.game)return;
+  if(L.G.winner===0){
+    try{const r=await rpc('jinro_cpu_win',{p_game:L.cpu.game});L.cpu.reward=r.reward;L.cpu.today=r.today;L.cpu.expRes=r;if(M.st)M.st.coins=r.coins}
+    catch(e){L.cpu.rewardErr=e.message}
+  }else if(L.G.winner===1){
+    try{L.cpu.expRes=await rpc('jinro_cpu_lose',{p_game:L.cpu.game})}catch(e){/* 負けの経験値が付かない場合はそのまま */}
+  }
+  if(L.cpu.expRes)refreshState();
   render();
 }
 async function cpuStartServer(){
   const my=L;try{const r=await rpc('jinro_cpu_start',{p_level:my.cpu.level});my.cpu.game=r.game;my.cpu.today=r.today}catch(e){my.cpu.game=null}
 }
 function renderLocal(){
-  if(L.phase==='rules')return`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 class="ttlh">${L.cpu?`CPU対戦・${CPU_LV[L.cpu.level].nm}`:'1台で対戦'}</h2></div>${L.cpu?`<div class="card"><b>勝つと ${CPU_LV[L.cpu.level].coin}コイン</b><p class="muted">あなたが先手です。コインは1日50枚まで、開始から20秒以上たって勝ったときにもらえます(CPU戦は戦績・ランクには入りません)。</p></div>`:''}${rulesCard(L.rules,true,true)}<button class="btn orange" data-act="localStart">配置へ進む</button>${rulesHTML()}`;
+  if(L.phase==='rules')return`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 class="ttlh">${L.cpu?`CPU対戦・${CPU_LV[L.cpu.level].nm}`:'1台で対戦'}</h2></div>${L.cpu?`<div class="card"><b>勝つと ${CPU_LV[L.cpu.level].coin}コイン</b><p class="muted">あなたが先手です。コインは1日50枚まで、開始から20秒以上たって勝ったときにもらえます。経験値は勝つと+${EXP_GAIN.cpuWin[L.cpu.level]}、負けても+${EXP_GAIN.cpuLose}もらえます(戦績には入りません)。</p></div>`:''}${rulesCard(L.rules,true,true)}<button class="btn orange" data-act="localStart">配置へ進む</button>${rulesHTML()}`;
   if(L.phase==='cover'){
     const p=L.cover.p,setup=L.cover.next==='setup';
     return`<div class="cover"><h2>${NAME[p]}の番</h2><p>${setup?`${NAME[p]}が駒の配置を決めます。相手に画面を見せないでください。`:`スマホを${NAME[p]}に渡してください。`}</p><button class="btn orange" data-act="uncover">${NAME[p]}です。画面を開く</button><button class="btn ghost small" data-act="home">ホームに戻る</button></div>`;
@@ -632,7 +649,7 @@ function renderLocal(){
   }
   const G=L.G;
   if(L.phase==='over'){
-    const cr=L.cpu,rw=cr&&G.winner===0?(cr.reward!=null?`<div class="card reward"><b>${cr.reward>0?`+${cr.reward}コイン獲得！`:'今日のCPU戦コインは上限(50枚)に達しました'}</b><small class="muted">今日のCPU戦 ${cr.today??0}/50コイン</small></div>`:cr.rewardErr?`<p class="muted">${esc(cr.rewardErr==='開始から20秒以上たってから勝つとコインがもらえます。'?cr.rewardErr:'コインは受け取れませんでした('+cr.rewardErr+')')}</p>`:cr.game?'<p class="muted">コインを受け取っています…</p>':'<p class="muted">名前を決めてオンラインにつながると、勝ったときにコインがもらえます。</p>'):'';
+    const cr=L.cpu,rw=(cr&&G.winner===0?(cr.reward!=null?`<div class="card reward"><b>${cr.reward>0?`+${cr.reward}コイン獲得！`:'今日のCPU戦コインは上限(50枚)に達しました'}</b><small class="muted">今日のCPU戦 ${cr.today??0}/50コイン</small></div>`:cr.rewardErr?`<p class="muted">${esc(cr.rewardErr==='開始から20秒以上たってから勝つとコインがもらえます。'?cr.rewardErr:'コインは受け取れませんでした('+cr.rewardErr+')')}</p>`:cr.game?'<p class="muted">コインを受け取っています…</p>':'<p class="muted">名前を決めてオンラインにつながると、勝ったときにコインがもらえます。</p>'):'')+(cr&&cr.expRes?expCard(cr.expRes,'CPU戦の経験値'):'');
     if(cr&&!L.c3)L.c3=charaEnd(G,0,'cpu-'+(L.c3key||(L.c3key=Date.now())));
     return`<section class="hero"><h1 class="over-h">${cr?(G.winner===0?'あなたの勝ち！':'CPUの勝ち'):NAME[G.winner]+'の勝ち'}</h1><p>${esc(G.reason)}。すべての駒を公開しています。</p></section>${rw}${cr?unlockNotice(L.c3,G.decks?.[0]):''}
       ${boardHTML(G,0,{reveal:true,looks:localLooks()})}<div class="row"><button class="btn orange" data-act="localAgain">もう一度遊ぶ</button><button class="btn ghost" data-act="home">ホームへ</button></div>`;
@@ -675,7 +692,7 @@ function localAct(a,el){
     else{const out=d.act==='drop'?applyDrop(G,d.i,r,c):d.act==='ab'?applyAbility(G,d.from[0],d.from[1],r,c):applyMove(G,d.from[0],d.from[1],r,c);if(G.winner==null){const save=G.skip,nc=G.noCap;const n=nextTurn(G);G.skip=save;G.noCap=nc;out.same=n===G.turn}localEnd(out)}
   }
   else if(a==='pass'){const G=L.G;const n=nextTurn(G);const same=n===G.turn;G.turn=n;L.notice=same?'てるてるの力で、もう1手続けて指せます(移動だけ。駒は取れません)。':L.out.note;L.noticeAlert=!!L.out.alert;if(same){L.phase='play'}else{L.cover={p:G.turn,next:'play'};L.phase='cover'}}
-  else if(a==='resign'){if(L.resignArm){if(L.cpu){L.G.winner=1;L.G.reason='あなたが投了しました';L.phase='over'}else{L.G.winner=1-L.G.turn;L.G.reason=`${NAME[L.G.turn]}が投了しました`;L.phase='over'}}else L.resignArm=true}
+  else if(a==='resign'){if(L.resignArm){if(L.cpu){L.G.winner=1;L.G.reason='あなたが投了しました';cpuOver()}else{L.G.winner=1-L.G.turn;L.G.reason=`${NAME[L.G.turn]}が投了しました`;L.phase='over'}}else L.resignArm=true}
   else if(a==='localAgain')localNew(L.cpu?{level:L.cpu.level}:null);
 }
 
@@ -833,7 +850,7 @@ function stampBar(){
 }
 function bubble(uid){const b=uid&&O.bubbles[uid];return b?(b.react?`<span class="bubble react">${lazyImg(ART[b.react].prop,T[b.react].nm)}</span>`:`<span class="bubble">${esc(b.text)}</span>`):''}
 function playerRow(uid,fb,seat,extra){
-  return`<div class="side pl">${uid?avatar(avOf(uid),'sm'):''}${titleTag(P.titles[uid])}<span class="who">${esc(nameOf(uid,fb))}</span><span class="badge">${NAME[seat]}</span>${uid?`<span class="stat">${statText(uid)}</span>`:''}${extra||''}${bubble(uid)}</div>`;
+  return`<div class="side pl">${uid?avatar(avOf(uid),'sm'):''}${titleTag(P.titles[uid])}<span class="who">${esc(nameOf(uid,fb))}</span>${uid?lvTag(uid):''}<span class="badge">${NAME[seat]}</span>${uid?`<span class="stat">${statText(uid)}</span>`:''}${extra||''}${bubble(uid)}</div>`;
 }
 function renderWatch(g){
   const u0=O.players[0]?.uid,u1=O.players[1]?.uid,looks=[O.players[0]?.look||{},O.players[1]?.look||{}];
@@ -886,6 +903,7 @@ function renderOnline(){
     return`<div class="top"><button class="btn ghost small" data-act="leave">退出</button></div>
       <section class="hero"><h1 class="over-h">${win?'あなたの勝ち':'あなたの負け'}</h1><p>${esc(g.reason)}。すべての駒を公開しています。</p></section>
       ${unlockNotice(O.c3.news,g.decks?.[me])}
+      ${O.expRes&&O.expRes.key===`${O.code}-${g.startNo}`?expCard(O.expRes,'対戦の経験値'):''}
       <div class="card">${playerRow(myUid,'あなた',me,g.winner===me?'<span class="badge turn">勝ち</span>':'')}${playerRow(opUid,'相手',op,g.winner===op?'<span class="badge turn">勝ち</span>':'')}</div>
       ${boardHTML(g,me,{reveal:true,looks})}
       ${stampBar()}
@@ -989,7 +1007,7 @@ setInterval(()=>{
     const now=performance.now();if(lastT==null){lastT=now;return}
     let dt=(now-lastT)/1000;lastT=now;const G=L.G,t=G.turn;
     if(G.time[t]>0){const u=Math.min(dt,G.time[t]);G.time[t]-=u;dt-=u}
-    if(dt>0&&G.time[t]<=0){L.byo-=dt;if(L.byo<=0){G.winner=1-t;G.reason=`${NAME[t]}の時間切れ`;L.phase='over';render();return}}
+    if(dt>0&&G.time[t]<=0){L.byo-=dt;if(L.byo<=0){G.winner=1-t;G.reason=`${NAME[t]}の時間切れ`;if(L.cpu)cpuOver();else{L.phase='over';render()}return}}
   }else lastT=null;
   if(S.screen==='online'&&O.game&&O.game.phase==='play'&&!O.timeoutSent){
     const g=O.game,st=clockState(g.turn),grace=g.turn===O.seat?0:3;
@@ -1008,7 +1026,7 @@ function nameCard(){
 function headerBar(){
   const st=M.st;
   return`<header class="hbar"><button class="avbtn" data-act="openAvatar" aria-label="アイコンを変える">${avatar(avOf(O.uid),'lg')}<i>変更</i></button>
-    <button class="hname" data-act="editName" aria-label="名前を変更">${titleTag(st?.title)}<b>${esc(myName())}</b><span class="stat">${statText(O.uid)}</span></button>
+    <button class="hname" data-act="editName" aria-label="名前を変更">${titleTag(st?.title)}<b>${esc(myName())}</b><span class="hmeta">${lvTag(O.uid)}<span class="stat">${statText(O.uid)}</span></span></button>
     ${soundBtn()}<button class="coin" data-act="go" data-to="gacha" aria-label="コイン ${st?st.coins:0}枚">${coinIcon}<b>${st?st.coins:'…'}</b></button></header>`;
 }
 function achReady(){if(!M.st||!M.st.stats)return 0;const c=new Set(M.st.ach_claimed||[]);return ACHIEVEMENTS.filter(a=>!c.has(a.id)&&(M.st.stats[a.stat]||0)>=a.goal).length}
@@ -1027,7 +1045,7 @@ function renderHome(){
   const st=M.st,done=st?MISSIONS.filter(m=>st.claimed.includes(m.id)).length:0,mr=missionsReady();
   const bk=todayBanner(),BN=BANNERS[bk],feat=bannerItems(bk).filter(i=>bk==='S'?true:i.rarity==='LR');
   const own=owned(),allItems=[...ITEMS,...ACH_ITEMS],have=allItems.filter(i=>own.has(i.id)).length;
-  return`${headerBar()}${inviteBanner()}
+  return`${headerBar()}${inviteBanner()}${levelCard()}
     <section class="stage">
       <div class="moon" aria-hidden="true"></div>
       <div class="stage-in">
@@ -1379,7 +1397,7 @@ function renderFriends(){
     <div class="card"><b>フレンドを追加</b><div class="row"><input id="fcode" class="codein fcin" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ABC123"><button class="btn" data-act="addFriend">申請</button></div>${M.friendErr?`<p class="err">${esc(M.friendErr)}</p>`:''}</div>
     ${inc.length?`<div class="card"><b>フレンド申請が届いています</b>${inc.map(f=>`<div class="frow"><div>${titleTag(f.title)}<b>${esc(f.name||'名無し')}</b></div><div class="row"><button class="btn orange small" data-act="respond" data-uid="${esc(f.uid)}" data-ok="1">承認</button><button class="btn ghost small" data-act="respond" data-uid="${esc(f.uid)}" data-ok="0">断る</button></div></div>`).join('')}</div>`:''}
     <div class="card"><b>フレンド(${acc.length}人)</b>
-      ${acc.length?acc.map(f=>`<div class="frow"><div class="fmain">${avatar(f.avatar,'sm')}<span class="odot${online(f)?' on':''}" title="${online(f)?'オンライン':'オフライン'}"></span>${titleTag(f.title)}<b>${esc(f.name||'名無し')}</b><span class="stat">${wr(f)}</span></div>
+      ${acc.length?acc.map(f=>`<div class="frow"><div class="fmain">${avatar(f.avatar,'sm')}<span class="odot${online(f)?' on':''}" title="${online(f)?'オンライン':'オフライン'}"></span>${titleTag(f.title)}<b>${esc(f.name||'名無し')}</b><span class="lvtag">Lv.${levelOf(f.exp||0)} ${lvRankName(levelOf(f.exp||0))}</span><span class="stat">${wr(f)}</span></div>
         <button class="btn orange small" data-act="inviteFriend" data-uid="${esc(f.uid)}" ${M.inviteSent[f.uid]?'disabled':''}>${M.inviteSent[f.uid]?'誘いました':'対戦に誘う'}</button></div>`).join(''):'<p class="muted">まだいません。フレンドコードを交換してみよう。</p>'}
       ${out.length?`<p class="muted">申請中:${out.map(f=>esc(f.name||'名無し')).join('、')}</p>`:''}</div>`;
 }
@@ -1466,6 +1484,16 @@ function zukanHTML(){
 }
 
 /* ---- 物語 ---- */
+// ストーリーの章を最後まで読んだら、初回だけサーバー経由で経験値が入る
+async function storyClear(ch){
+  const stage='ch'+(ch+1),key=`jinro-story-${stage}`;
+  if(P.storyClear.has(stage)||store.get(key))return;
+  P.storyClear.add(stage);
+  try{
+    const r=await rpc('jinro_story_clear',{p_stage:stage});store.set(key,'1');
+    if(r&&r.exp_gain>0){M.storyExp={...r};toast(`ストーリークリア！ +${r.exp_gain}経験値${r.level_after>r.level_before?`・レベルアップして Lv.${r.level_after} ${lvRankName(r.level_after)}に！`:''}`);refreshState()}
+  }catch(e){P.storyClear.delete(stage)}
+}
 function renderStory(){
   const R=M.story;
   if(R){
@@ -1478,7 +1506,9 @@ function renderStory(){
         <small class="ptap">タップで次へ(${R.i+1}/${ch.scene.length})</small></div>
         ${!u.expr?'<p class="muted center">表情はそのキャラを手に入れると解放されます</p>':''}`;
     }
+    storyClear(R.ch);
     return`${backBar(esc(ch.title),'story')}<div class="card story"><p>${esc(ch.text)}</p></div>
+      ${M.storyExp&&M.storyExp.stage==='ch'+(R.ch+1)?expCard(M.storyExp,'ストーリークリアの経験値'):''}
       <div class="row center">${R.ch<STORY.length-1?`<button class="btn orange" data-act="storyPlay" data-ch="${R.ch+1}">次の章へ</button>`:''}<button class="btn ghost" data-act="storyClose">章の一覧へ</button></div>`;
   }
   return`${backBar('物語『月夜の盤上』','collection')}

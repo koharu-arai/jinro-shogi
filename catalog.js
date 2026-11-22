@@ -107,6 +107,11 @@ export const ITEMS = [
   { id: 'k_sakura',   kind: 'skin',  rarity: 'R',   name: 'サクラ' },
   { id: 'k_sky',      kind: 'skin',  rarity: 'R',   name: 'スカイ' },
   { id: 'k_night',    kind: 'skin',  rarity: 'R',   name: 'ミッドナイト' },
+  { id: 'f_lv10',     kind: 'frame', rarity: 'R',   name: '村人の枠', color: '#65a30d', gacha: false },
+  { id: 'f_lv20',     kind: 'frame', rarity: 'SR',  name: '騎士の枠', color: '#0ea5e9', gacha: false },
+  { id: 'f_lv30',     kind: 'frame', rarity: 'SSR', name: '占い師の枠', color: '#7c3aed', gacha: false },
+  { id: 'f_lv50',     kind: 'frame', rarity: 'SSR', name: '長老の枠', color: '#d97706', gacha: false },
+  { id: 'f_lv80',     kind: 'frame', rarity: 'LR',  name: '伝説の枠', color: '#e2e8f0', gacha: false },
   { id: 'f_red',      kind: 'frame', rarity: 'R',   name: '赤の枠',   color: '#e5484d' },
   { id: 'f_blue',     kind: 'frame', rarity: 'R',   name: '青の枠',   color: '#2f7bf0' },
   { id: 'f_green',    kind: 'frame', rarity: 'R',   name: '緑の枠',   color: '#16a36b' },
@@ -143,6 +148,11 @@ export const ACH_ITEMS = [
   { id: 't_ssrall',  kind: 'title', rarity: 'SSR', name: '超激レアコレクター', gacha: false },
   { id: 't_charall', kind: 'title', rarity: 'LR',  name: '伝説のコレクター', gacha: false },
   { id: 't_grandmaster', kind: 'title', rarity: 'LR', name: 'グランドマスター', gacha: false },
+  { id: 't_lv10', kind: 'title', rarity: 'R',   name: '村人',       gacha: false },
+  { id: 't_lv20', kind: 'title', rarity: 'SR',  name: '騎士',       gacha: false },
+  { id: 't_lv30', kind: 'title', rarity: 'SSR', name: '占い師',     gacha: false },
+  { id: 't_lv50', kind: 'title', rarity: 'SSR', name: '長老',       gacha: false },
+  { id: 't_lv80', kind: 'title', rarity: 'LR',  name: '伝説の棋士', gacha: false },
 ];
 // stat: wins(通算勝利) / games(通算対局) / ssr(SSRキャラ所持数) / chars(新キャラ所持数) / friends(フレンド数)
 export const ACHIEVEMENTS = [
@@ -175,12 +185,15 @@ export const LOGIN = { daily: 20, weekBonus: 100, welcome: 900 };
 
 // 初期の駒のレア度(C=コモン)
 export const BASE_RARITY = { villager: 'C', seer: 'R', knight: 'R', hunter: 'R' };
-// 王様と人狼は対戦の経験値で昇格する。経験値 = 勝ち×30 + 負け×10。上のランクは勝率も必要
-export const EXP = { win: 30, lose: 10 };
-export const RANKS = [
-  { r: 'C',   exp: 0,    wr: 0 },
-  { r: 'R',   exp: 100,  wr: 0 },
-  { r: 'SR',  exp: 300,  wr: 0 },
-  { r: 'SSR', exp: 700,  wr: 40 },
-  { r: 'LR',  exp: 1500, wr: 50 },
-];
+// プレイヤーレベル(Lv1〜99)。経験値はサーバー側(jinro_wallets.exp)で管理し、RPC経由でだけ増える
+// 次のレベルに必要な経験値 = 100 + (今のレベル - 1) × 20
+export const EXP_GAIN = { onlineWin: 50, onlineLose: 20, cpuWin: { easy: 10, normal: 20, hard: 30 }, cpuLose: 5, story: 100, storyBoss: 200 };
+export const lvNeed = lv => 100 + (lv - 1) * 20;                                   // レベルlv→lv+1 に必要な経験値
+export const lvTotal = lv => (lv - 1) * 100 + 10 * (lv - 1) * (lv - 2);            // レベルlv到達までの累計
+export function levelOf(exp) { let lv = 1; while (lv < 99 && exp >= lvTotal(lv + 1)) lv++; return lv }
+export const lvProgress = exp => { const lv = levelOf(exp); return lv >= 99 ? { lv, into: 0, need: 0, pct: 100 } : { lv, into: exp - lvTotal(lv), need: lvNeed(lv), pct: Math.min(100, (exp - lvTotal(lv)) / lvNeed(lv) * 100) } };
+export const LV_RANK_NAME = [[80, '伝説の棋士'], [50, '長老'], [30, '占い師'], [20, '騎士'], [10, '村人'], [1, '見習い']];
+export const lvRankName = lv => (LV_RANK_NAME.find(([m]) => lv >= m) || [1, '見習い'])[1];
+// 王様・人狼の光り方(旧ランク)はプレイヤーレベルに一本化: Lv5でR、15でSR、30でSSR、50でLR
+export const pieceRankOfLv = lv => lv >= 50 ? 'LR' : lv >= 30 ? 'SSR' : lv >= 15 ? 'SR' : lv >= 5 ? 'R' : 'C';
+export const LV_MILESTONES = [10, 20, 30, 50, 80];
