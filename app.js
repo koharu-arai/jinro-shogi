@@ -1056,6 +1056,12 @@ function renderHome(){
       </div>
       <div class="stage-pcs" aria-hidden="true">${['wolf','king','seer'].map((t,i)=>`<span class="spc spc${i}">${tile(t,{look:myLook()})}</span>`).join('')}</div>
     </section>
+    <button class="feature story-feat" data-act="go" data-to="story">
+      <span class="ftag">メインストーリー</span>
+      <b class="fname">物語『月夜の盤上』</b>
+      <small class="fdesc">全${STORY.length}章の物語。章を最後まで読むと、初回だけ経験値がもらえます。</small>
+      <span class="fgo">物語を読む ›</span>
+    </button>
     <button class="feature b-${bk}" data-act="go" data-to="gacha">
       <span class="ftag">${bk==='S'?'日曜限定':'本日のガチャ'}</span>
       <b class="fname">${esc(BN.name)}</b><small class="fdesc">${esc(BN.desc)}</small>
