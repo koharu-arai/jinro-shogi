@@ -252,7 +252,7 @@ begin
       select uid, count(*) filter (where win) as wins, count(*) filter (where not win) as losses
       from jinro_results group by uid
     loop
-      perform jinro_add_exp(r.uid, r.wins * 50 + r.losses * 20);
+      perform jinro_add_exp(r.uid, (r.wins * 50 + r.losses * 20)::int);
     end loop;
     insert into jinro_exp_migrations(id) values ('online_results_v1');
   end if;
