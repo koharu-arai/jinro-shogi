@@ -148,6 +148,8 @@ export const ACH_ITEMS = [
   { id: 't_ssrall',  kind: 'title', rarity: 'SSR', name: '超激レアコレクター', gacha: false },
   { id: 't_charall', kind: 'title', rarity: 'LR',  name: '伝説のコレクター', gacha: false },
   { id: 't_grandmaster', kind: 'title', rarity: 'LR', name: 'グランドマスター', gacha: false },
+  { id: 't_ponkotsu', kind: 'title', rarity: 'LR', name: '稀代のポンコツ', gacha: false },
+  { id: 't_maeda_bf', kind: 'title', rarity: 'LR', name: '前田の彼氏', gacha: false },
   { id: 't_lv10', kind: 'title', rarity: 'R',   name: '村人',       gacha: false },
   { id: 't_lv20', kind: 'title', rarity: 'SR',  name: '騎士',       gacha: false },
   { id: 't_lv30', kind: 'title', rarity: 'SSR', name: '占い師',     gacha: false },
