@@ -38,7 +38,7 @@ function buildBoard(setups){
   });
   return b;
 }
-const DEFAULT_RULES={time:0,drops:false,promote:false,reveal:false,try:true,chars:true};
+const DEFAULT_RULES={time:0,drops:true,promote:false,reveal:false,try:true,chars:true};
 const TIME_OPTS=[[0,'なし'],[60,'1分'],[180,'3分'],[300,'5分']];
 const TOGGLES=[
   ['chars','新キャラ','ガチャで手に入れた新キャラを編成に入れられる'],
@@ -416,7 +416,7 @@ function boardHTML(G,v,{sel=null,interactive=false,reveal=false,looks=[{},{}],wa
   return h+'</div></div>';
 }
 function rulesCard(r,editable,local){
-  if(!editable)return`<div class="card rulesbox"><b>部屋のルール</b><p class="muted">${rulesText(r)}(部屋を作った人が決めます)</p></div>`;
+  if(!editable)return`<div class="card rulesbox"><b>${local?'対戦ルール':'部屋のルール'}</b><p class="muted">${rulesText(r)}${local?'(CPU対戦では変更できません)':'(部屋を作った人が決めます)'}</p></div>`;
   const chip=(act,val,label,on)=>`<button class="chip${on?' on':''}" data-act="${act}" data-v="${val}" aria-pressed="${on}">${label}</button>`;
   return`<div class="card rulesbox"><b>部屋のルール</b>
     <div class="ruleline"><span class="muted">持ち時間</span><div class="row">${TIME_OPTS.map(([v,l])=>chip('setTime',v,l,r.time===v)).join('')}</div></div>
@@ -597,7 +597,7 @@ async function recordResult(g){
 }
 
 /* ===== local mode (one device) ===== */
-function localNew(cpu=null){L={cpu,phase:'rules',rules:{...DEFAULT_RULES},cover:{p:0,next:'setup'},setup:[savedDeck(),savedDeck()],setupP:0,sel:null,msg:'',G:null,byo:BYO,out:null,notice:'',noticeAlert:false,resignArm:false}}
+function localNew(cpu=null){L={cpu,phase:'rules',rules:{...DEFAULT_RULES},cover:{p:0,next:'setup'},setup:[savedDeck(),savedDeck()],setupP:0,sel:null,msg:'',G:null,byo:BYO,out:null,notice:'',noticeAlert:false,resignArm:false};if(cpu)L.setup[0]=fitDeck(L.setup[0],ownedChars())}
 function localEnd(out){L.sel=null;L.byo=BYO;if(L.G.winner!=null)L.phase='over';else{L.out=out;L.phase='result'}}
 const localLooks=()=>[myLook(),{}];
 const pName=p=>L&&L.cpu?(p===0?'あなた':(L.cpu.name||'CPU')):NAME[p];
@@ -642,14 +642,14 @@ async function cpuStartServer(){
   try{const r=await rpc('jinro_cpu_start',{p_level:my.cpu.level});my.cpu.game=r.game;my.cpu.today=r.today}catch(e){my.cpu.game=null}
 }
 function renderLocal(){
-  if(L.phase==='rules')return`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 class="ttlh">${L.cpu?(L.cpu.story!=null?`メインストーリー対戦`:`CPU対戦・${CPU_LV[L.cpu.level].nm}`):'1台で対戦'}</h2></div>${L.cpu?(L.cpu.story!=null?`<div class="card"><b>${esc(STORY[L.cpu.story].title)} ― 相手は${esc(L.cpu.name)}</b><p class="muted">あなたが先手です。勝つとこの章をクリアできます。初回クリアで経験値+${L.cpu.story===STORY.length-1?300:100}がもらえます(負けたときの経験値やコインはありません)。何度でも挑戦できます。</p></div>`:`<div class="card"><b>勝つと ${CPU_LV[L.cpu.level].coin}コイン</b><p class="muted">あなたが先手です。コインは1日50枚まで、開始から20秒以上たって勝ったときにもらえます。経験値は勝つと+${EXP_GAIN.cpuWin[L.cpu.level]}、負けても+${EXP_GAIN.cpuLose}もらえます(戦績には入りません)。</p></div>`):''}${rulesCard(L.rules,true,true)}<button class="btn orange" data-act="localStart">配置へ進む</button>${rulesHTML()}`;
+  if(L.phase==='rules')return`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 class="ttlh">${L.cpu?(L.cpu.story!=null?`メインストーリー対戦`:`CPU対戦・${CPU_LV[L.cpu.level].nm}`):'1台で対戦'}</h2></div>${L.cpu?(L.cpu.story!=null?`<div class="card"><b>${esc(STORY[L.cpu.story].title)} ― 相手は${esc(L.cpu.name)}</b><p class="muted">あなたが先手です。勝つとこの章をクリアできます。初回クリアで経験値+${L.cpu.story===STORY.length-1?300:100}がもらえます(負けたときの経験値やコインはありません)。何度でも挑戦できます。</p></div>`:`<div class="card"><b>勝つと ${CPU_LV[L.cpu.level].coin}コイン</b><p class="muted">あなたが先手です。コインは1日50枚まで、開始から20秒以上たって勝ったときにもらえます。経験値は勝つと+${EXP_GAIN.cpuWin[L.cpu.level]}、負けても+${EXP_GAIN.cpuLose}もらえます(戦績には入りません)。</p></div>`):''}${rulesCard(L.rules,!L.cpu,true)}<button class="btn orange" data-act="localStart">配置へ進む</button>${rulesHTML()}`;
   if(L.phase==='cover'){
     const p=L.cover.p,setup=L.cover.next==='setup';
     return`<div class="cover"><h2>${NAME[p]}の番</h2><p>${setup?`${NAME[p]}が駒の配置を決めます。相手に画面を見せないでください。`:`スマホを${NAME[p]}に渡してください。`}</p><button class="btn orange" data-act="uncover">${NAME[p]}です。画面を開く</button><button class="btn ghost small" data-act="home">ホームに戻る</button></div>`;
   }
   if(L.phase==='setup'){
-    const pool=[...SWAP_BASE,...(L.rules.chars?NEWC:[])];
-    return`<div class="top"><button class="btn ghost small" data-act="home">退出</button><h2 class="ttlh">${L.cpu?'あなた':NAME[L.setupP]}の配置</h2></div><div class="side"><span class="badge">2マスを順にタップで入れ替え</span></div>
+    const pool=[...SWAP_BASE,...(L.rules.chars?(L.cpu?ownedChars():NEWC):[])];
+    return`<div class="top"><button class="btn ghost small" data-act="home">退出</button><h2 class="ttlh">${L.cpu?'あなた':NAME[L.setupP]}の配置</h2></div><div class="side"><span class="badge">2マスを順にタップで入れ替え</span></div>${L.cpu&&NEWC.some(k=>!ownedChars().includes(k))?'<p class="muted">CPU対戦では、持っている駒だけ使えます。新キャラはガチャで手に入ります。</p>':''}
       ${setupHTML(L.setup[L.setupP],L.sel?.i,pool,localLooks()[L.setupP],L.msg)}${setupControls()}<button class="btn orange" data-act="confirm">この配置で決定</button>${rulesHTML()}`;
   }
   const G=L.G;
@@ -675,15 +675,15 @@ function renderLocal(){
 }
 function localAct(a,el){
   if(a!=='resign')L.resignArm=false;
-  if(a==='setTime'){L.rules.time=+el.dataset.v}
-  else if(a==='setRule'){const [k,v]=el.dataset.v.split(':');L.rules[k]=v==='1'}
+  if(a==='setTime'){if(!L.cpu)L.rules.time=+el.dataset.v}
+  else if(a==='setRule'){if(!L.cpu){const [k,v]=el.dataset.v.split(':');L.rules[k]=v==='1'}}
   else if(a==='localStart'){if(L.cpu){L.phase='setup';L.setupP=0;L.sel=null;cpuStartServer()}else{L.phase='cover';L.cover={p:0,next:'setup'}}}
   else if(a==='uncover'){L.phase=L.cover.next;L.sel=null;L.msg='';lastT=null}
   else if(a==='swap'){const i=+el.dataset.i,ar=L.setup[L.setupP];L.msg='';if(L.sel&&L.sel.i!=null&&L.sel.i!==i){[ar[L.sel.i],ar[i]]=[ar[i],ar[L.sel.i]];L.sel=null}else L.sel=L.sel&&L.sel.i===i?null:{i}}
   else if(a==='pick'){L.msg=pickInto(L.setup[L.setupP],L.sel?.i,el.dataset.t);if(!L.msg)L.sel=null}
   else if(a==='preset'){L.setup[L.setupP]=PRESETS[+el.dataset.k].a.slice();L.sel=null}
   else if(a==='shuffle'){shuffle(L.setup[L.setupP]);L.sel=null}
-  else if(a==='confirm'&&L.cpu){L.sel=null;L.msg='';L.setup[1]=L.cpu.story!=null?fitDeck(STORY_BATTLE[L.cpu.story].deck.slice(),L.rules.chars?NEWC:[]):cpuDeck(L.cpu.level,L.rules);L.G=newGame(L.setup,L.rules);L.notice='対局開始。あなたが先手です。';L.noticeAlert=false;L.phase='play';lastT=null}
+  else if(a==='confirm'&&L.cpu){L.sel=null;L.msg='';L.setup[0]=fitDeck(L.setup[0],ownedChars());L.setup[1]=L.cpu.story!=null?fitDeck(STORY_BATTLE[L.cpu.story].deck.slice(),L.rules.chars?NEWC:[]):cpuDeck(L.cpu.level,L.rules);L.G=newGame(L.setup,L.rules);L.notice='対局開始。あなたが先手です。';L.noticeAlert=false;L.phase='play';lastT=null}
   else if(a==='confirm'){L.sel=null;L.msg='';if(L.setupP===0){L.setupP=1;L.cover={p:1,next:'setup'}}else{L.G=newGame(L.setup,L.rules);L.notice='対局開始。先手から指します。';L.noticeAlert=false;L.cover={p:0,next:'play'}}L.phase='cover'}
   else if(a==='hand'){const i=+el.dataset.i;L.sel=L.sel&&L.sel.hand===i?null:{hand:i}}
   else if(a==='bite'){if(L.sel)L.sel={r:L.sel.r,c:L.sel.c,ab:!L.sel.ab}}
