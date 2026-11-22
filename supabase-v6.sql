@@ -48,6 +48,7 @@ create table if not exists public.jinro_exp_migrations ( -- 過去戦績→経�
   id text primary key,
   done_at timestamptz not null default now()
 );
+alter table public.jinro_exp_migrations enable row level security;
 
 -- ========== 節目報酬の景品(ガチャからは出ない) ==========
 insert into public.jinro_items(id, kind, rarity, gacha, banner) values
