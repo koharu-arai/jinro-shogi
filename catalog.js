@@ -142,6 +142,7 @@ export const ACH_ITEMS = [
   { id: 't_win100',  kind: 'title', rarity: 'LR',  name: '人狼将棋マスター', gacha: false },
   { id: 't_ssrall',  kind: 'title', rarity: 'SSR', name: '超激レアコレクター', gacha: false },
   { id: 't_charall', kind: 'title', rarity: 'LR',  name: '伝説のコレクター', gacha: false },
+  { id: 't_grandmaster', kind: 'title', rarity: 'LR', name: 'グランドマスター', gacha: false },
 ];
 // stat: wins(通算勝利) / games(通算対局) / ssr(SSRキャラ所持数) / chars(新キャラ所持数) / friends(フレンド数)
 export const ACHIEVEMENTS = [

@@ -534,7 +534,7 @@ function bestStyle(c){const u=unlocks(c);return u.lux?'lux':u.gold?'gold':u.icon
 function localAvatar(){try{return JSON.parse(store.get('jinro-avatar')||'null')}catch(e){return null}}
 function mergeAvatar(av){if(!av)return av;const l=localAvatar();if(l&&l.c===av.c&&l.bg===av.bg&&l.s)return{...av,s:l.s};return av}
 function myLookFor(av){return av&&av.wolf?{wolf:av.wolf}:null}
-function titleTag(id){const it=id&&ITEM[id];return it?`<span class="ttl r-${it.rarity}">${esc(it.name)}</span>`:''}
+function titleTag(id){const it=id&&ITEM[id];return it?`<span class="ttl r-${it.rarity}${id==='t_grandmaster'?' gm':''}">${esc(it.name)}</span>`:''}
 
 const ERR={tokens:'特別コインが足りません。',exchange:'そのキャラとは交換できません。',auth:'この端末の合言葉が一致しません。前に使っていた端末で開いてください。',already:'もう受け取り済みです。',coins:'コインが足りません。',notyet:'まだ達成していません。',notfound:'そのフレンドコードの人が見つかりません。',self:'自分のコードです。',notfriend:'フレンドになってから誘えます。',slow:'少し待ってから送ってください。',notowned:'持っていない景品です。',name:'名前は1〜12文字で入力してください。',pick:'日曜日はピックアップするキャラを選んでから引いてください。',fast:'開始から20秒以上たってから勝つとコインがもらえます。',level:'難易度が正しくありません。'};
 async function rpc(fn,args={}){
@@ -1161,7 +1161,7 @@ function itemArt(it,big){
   return`<span class="art-stamp">💬</span>`;
 }
 function itemCard(it,o={}){
-  return`<div class="icard r-${it.rarity}${o.locked?' locked':''}${o.on?' on':''}" style="${o.delay!=null?`animation-delay:${o.delay}ms`:''}">
+  return`<div class="icard r-${it.rarity}${it.id==='t_grandmaster'?' gm':''}${o.locked?' locked':''}${o.on?' on':''}" style="${o.delay!=null?`animation-delay:${o.delay}ms`:''}">
     <span class="rar r-${it.rarity}">${it.rarity}</span><div class="iart">${o.locked?'<span class="art-lock">?</span>':itemArt(it)}</div>
     <b class="iname">${o.locked?'？？？':esc(it.name)}</b><small>${KIND_LABEL[it.kind]}</small>${o.extra||''}</div>`;
 }

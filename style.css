@@ -820,3 +820,10 @@ input,textarea,.code{-webkit-user-select:text;user-select:text;-webkit-touch-cal
 .sl-art .sl-chara .fullbody{animation:none}
 .sl-art .sl-chara .fullbody.hasimg{animation:none}
 .sl-art .spk{display:none}
+
+/* 特別称号「グランドマスター」: 光る黒(黒いオーラが明滅する)。こはる専用称号 t_grandmaster */
+.ttl.gm{background:linear-gradient(135deg,#3d3d4a,#050508 45%,#1a1a24 70%,#000);color:#fff;text-shadow:0 0 6px rgba(255,255,255,.7),0 1px 1px #000;box-shadow:inset 0 0 0 1px rgba(255,255,255,.55),inset 0 1px 0 rgba(255,255,255,.35),0 0 7px rgba(0,0,0,.95),0 0 14px rgba(0,0,0,.7);animation:gmglow 1.8s ease-in-out infinite alternate}
+@keyframes gmglow{from{box-shadow:inset 0 0 0 1px rgba(255,255,255,.45),inset 0 1px 0 rgba(255,255,255,.25),0 0 6px rgba(0,0,0,.9),0 0 12px rgba(0,0,0,.6),0 0 10px rgba(170,180,255,.18)}to{box-shadow:inset 0 0 0 1px rgba(255,255,255,.8),inset 0 1px 0 rgba(255,255,255,.5),0 0 10px rgba(0,0,0,1),0 0 22px rgba(0,0,0,.85),0 0 18px rgba(170,180,255,.4)}}
+@media (prefers-reduced-motion: reduce){.ttl.gm{animation:none}}
+.icard.gm{background:linear-gradient(180deg,#26262f,#050508);box-shadow:inset 0 0 0 3px #0a0a0f,0 0 18px rgba(0,0,0,.85),0 0 26px rgba(160,170,255,.25)}
+.icard.gm .rar.r-LR{background:#050508;animation:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.6),0 0 10px rgba(0,0,0,.9)}
