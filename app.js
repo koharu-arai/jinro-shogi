@@ -333,7 +333,13 @@ function cpuChoose(G,c,level){
   if(Math.random()<L2.rand){const caps=ms.filter(m=>m.k==='m'&&G.board[m.nr][m.nc]),pool=caps.length&&Math.random()<.5?caps:ms;return pool[Math.floor(Math.random()*pool.length)]}
   const t0=Date.now(),score=new Array(ms.length).fill(0);let k=0;
   for(;k<L2.k;k++){const D=determinize(G,c);ms.forEach((m,i)=>{const H=clone(D);H.turn=c;playMove(H,m);score[i]+=search(H,L2.depth-1,c,-Infinity,Infinity)});if(Date.now()-t0>1500)break}
-  let bi=0,bv=-Infinity;score.forEach((v,i)=>{const x=v/(k+1)+(Math.random()-.5)*L2.noise*2;if(x>bv){bv=x;bi=i}});
+  // 王様で正体の見えない駒を取りに行くと、隠れた人狼の返り討ちでその場で負けることがある。
+  // 仮定の数が少ないとこの危険を見落とすので、人狼である確率ぶんを差し引く
+  const unseen=[];let wolfOpen=false;
+  for(let r=0;r<5;r++)for(let x=0;x<3;x++){const P=G.board[r][x];if(!P||P.owner===c)continue;if(P.type==='wolf'&&P.revealed)wolfOpen=true;if(!P.fake&&!seenBy(P,c))unseen.push(P)}
+  const pWolf=!wolfOpen&&unseen.length?1/unseen.length:0;
+  const risk=m=>{if(m.k!=='m'||!pWolf)return 0;const A=G.board[m.r][m.c],Q=G.board[m.nr][m.nc];if(!Q||A.type!=='king'||!unseen.includes(Q))return 0;return pWolf*8000};
+  let bi=0,bv=-Infinity;score.forEach((v,i)=>{const x=v/(k+1)-risk(ms[i])+(Math.random()-.5)*L2.noise*2;if(x>bv){bv=x;bi=i}});
   return ms[bi];
 }
 function cpuDeck(level,rules){
