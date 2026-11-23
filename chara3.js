@@ -182,6 +182,12 @@ export function faceIcon(k, fallbackHtml, { cls = '', force = null } = {}) {
   return `<span class="face img ${u.gold ? 'gold' : ''} ${u.lux ? 'lux' : ''} ${cls}">${fallbackHtml}${lazyImg(src, PROFILE[k]?.name || k)}</span>`;
 }
 
+/* 本格モーション(動画)があるキャラ。大きな全身表示(図鑑詳細・ガチャ演出・ストーリー)でのみ動画にする。
+   動画ファイルは Supabase Storage の公開バケット motion に置く(リポジトリにはバイナリを入れない) */
+const MOTION = { nekomata: 1 };
+const MOTION_CLS = ['big', 'hfull', 'pfull'];
+const MOTION_BASE = 'https://raworybgvaxzfmsueeoz.supabase.co/storage/v1/object/public/motion';
+
 /** 全身イラスト。未解放はシルエット */
 export function fullbodyImg(k, { cls = '', silhouetteIfLocked = true } = {}) {
   const u = unlocks(k);
@@ -189,8 +195,10 @@ export function fullbodyImg(k, { cls = '', silhouetteIfLocked = true } = {}) {
   if (!a) return '';
   const src = u.lux && a.fullbodyLux ? a.fullbodyLux : a.fullbody;
   const locked = !u.full && silhouetteIfLocked;
-  const blink = !locked && !u.lux && a.blink && artStyle() !== 'flat' ? `<img class="blink" src="${a.blink}" alt="" loading="lazy" decoding="async" onload="this.classList.add('ok')" onerror="this.remove()">` : '';
-  return `<span class="fullbody ${locked ? 'locked' : ''} ${u.lux ? 'lux' : ''} ${artStyle() === 'flat' ? 'flatanim' : ''} ${cls}">${lazyImg(src, PROFILE[k]?.name || k)}${blink}${locked ? '<span class="lockmark">？？？</span>' : fxHTML(k)}</span>`;
+  if (!locked && MOTION[k] && artStyle() === 'flat' && MOTION_CLS.includes(cls)) {
+    return `<span class="fullbody ${u.lux ? 'lux' : ''} ${cls}"><video class="fbvid" autoplay muted loop playsinline preload="auto" poster="${src}"><source src="${MOTION_BASE}/${k}.webm" type="video/webm"><source src="${MOTION_BASE}/${k}.mp4" type="video/mp4"></video></span>`;
+  }
+  return `<span class="fullbody ${locked ? 'locked' : ''} ${u.lux ? 'lux' : ''} ${artStyle() === 'flat' ? 'flatanim' : ''} ${cls}">${lazyImg(src, PROFILE[k]?.name || k)}${locked ? '<span class="lockmark">？？？</span>' : ''}</span>`;
 }
 
 /* ===== 日曜限定ガチャの8体(紹介文はマルのたたき台を調整。全身イラストは本人経由で届き次第 chara3/fullbody/ に置く) ===== */
@@ -242,22 +250,3 @@ if (artStyle() === 'flat') {
     delete ART[k].iconLux;
   }
 }
-
-/* ===== 全身イラストを生きているように見せる ===== */
-// キャラごとの粒子:[動き方, 色]。wisp=光の玉が昇る / spark=またたく / petal=花びらが舞い落ちる / leaf=葉が舞う / heart=ハートが昇る / rain=雨 / smoke=煙が漂う
-export const FX = {
-  king: ['spark', '#ffd76a'], wolf: ['wisp', '#c9d8ff'], villager: ['wisp', '#ffd27a'], seer: ['spark', '#c9a6ff'],
-  knight: ['spark', '#e6ecff'], hunter: ['leaf', '#8bd46b'], medium: ['wisp', '#9ff0ff'], tough: ['spark', '#ffb15a'],
-  nekomata: ['wisp', '#c58bff'], teru: ['rain', '#bfe6ff'], fox: ['wisp', '#7cc4ff'], thief: ['spark', '#ffe08a'],
-  vampire: ['petal', '#e11d48'], cursed: ['smoke', '#9b6bff'], madman: ['spark', '#ff9a3c'], wolfboy: ['leaf', '#a3e635'],
-  detective: ['spark', '#ffd76a'], gravekeeper: ['wisp', '#ffc46b'], bodyguard: ['spark', '#5eead4'], witch: ['spark', '#f0abfc'],
-  ninja: ['leaf', '#94a3b8'], cupid: ['heart', '#ff7eb6'],
-};
-export function fxHTML(k) {
-  const f = FX[k];
-  if (!f) return '';
-  return `<span class="fx fx-${f[0]}" style="--fx:${f[1]}" aria-hidden="true">${'<i></i>'.repeat(8)}</span>`;
-}
-// まばたき差分(目を閉じた全身イラスト)が届いたキャラだけ、ここに足す。画像は chara3/blink/char3-<key>.webp
-export const BLINK_KEYS = [];
-for (const k of BLINK_KEYS) if (ART[k]) ART[k].blink = `${DIR}/blink/char3-${k}.webp`;
