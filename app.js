@@ -1203,6 +1203,18 @@ function todayBanner(){if(M.st?.banner)return M.st.banner;const d=new Date(Date.
 const inBanner=(i,k)=>i.kind==='char'&&(i.rarity==='LR'?i.banner===k:k==='S'?i.banner==='S':!i.banner);
 const bannerItems=k=>ITEMS.filter(i=>inBanner(i,k));
 // 出るキャラを1体ずつスライドで見る
+// 物語のセリフを1文字ずつ表示する(タップで全部表示)
+const TW={timer:null,finish(){}};
+function setupTypewriter(){
+  if(TW.timer>0)clearInterval(TW.timer);TW.timer=null;
+  const p=document.querySelector('.play .pbox p[data-tw]');if(!p)return;
+  const full=p.textContent,box=p.closest('.pbox');let n=0;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  p.textContent='';box.classList.add('talking');let fin=false;
+  const done=()=>{fin=true;if(TW.timer>0)clearInterval(TW.timer);TW.timer=null;p.textContent=full;box.classList.remove('talking')};
+  TW.finish=done;TW.timer=-1;   // 打ち始める前のタップでも全部表示できるように
+  setTimeout(()=>{if(fin||!p.isConnected)return;TW.timer=setInterval(()=>{if(!p.isConnected){clearInterval(TW.timer);TW.timer=null;return}n++;p.textContent=full.slice(0,n);if(n>=full.length)done()},45)},380);
+}
 // スライド:画面の中央に来たキャラを登場させ、指でなぞると少し傾く
 let slideIO=null;
 function setupSlides(){
@@ -1276,10 +1288,12 @@ function gachaOverlay(){
   const A=M.anim,best=A.best||'N';
   if(A.phase==='open'&&A.hero!=null){
     const cs=heroChars(A),r=cs[A.hero],it=ITEM[r.item],k=it.char,pf=PROFILE[k],u=unlocks(k);
-    return`<div class="modal ghero r-${it.rarity}"><div class="hbg">${fullbodyImg(k,{cls:'hfull'})}</div>
+    return`<div class="modal ghero reveal r-${it.rarity}" data-k="${A.hero}"><div class="rays" aria-hidden="true"></div><div class="hbg">${fullbodyImg(k,{cls:'hfull',silhouetteIfLocked:false})}</div>
+      <div class="hflash" aria-hidden="true"></div>
+      <div class="cutin r-${it.rarity}" aria-hidden="true"><span><b>${it.rarity}</b>${esc(it.name)}</span></div>
       <div class="hinfo"><span class="rar big r-${it.rarity}">${it.rarity}</span>${r.dup?'':'<span class="new big">NEW</span>'}
         <h2>${esc(it.name)}<small>${esc(pf.name)}</small></h2><p class="alias">${esc(pf.alias)}</p><p class="intro">${esc(pf.intro)}</p>
-        ${!u.full?`<small class="muted">全身イラストは、このキャラを手に入れると解放されます</small>`:''}
+        ${!u.full?`<small class="muted">図鑑の全身イラストは、このキャラを50回使うと解放されます</small>`:''}
         <div class="row center">${cs.length>1?`<button class="btn ghost" data-act="heroNext">次のキャラ(${A.hero+1}/${cs.length})</button>`:''}<button class="btn orange" data-act="heroDone">結果を見る</button></div></div></div>`;
   }
   if(A.phase==='open'){
@@ -1522,9 +1536,11 @@ function renderStory(){
     const ch=STORY[R.ch],beat=R.i<ch.scene.length?ch.scene[R.i]:null;
     if(beat){const [k,e]=beat,u=unlocks(k);
       const face=u.expr?`<span class="sface">${lazyImg(ART[k].expr[e],EXPR_LABEL[e])}</span>`:u.icon?faceIcon(k,iconSvg(k),{cls:'sface'}):`<span class="face sface sil">${iconSvg(k)}</span>`;
-      return`${backBar(esc(ch.title),'story')}<div class="play" data-act="storyNext">
+      const emo={angry:'💢',surprise:'❗',shy:'💗'}[e]||'';
+      return`${backBar(esc(ch.title),'story')}<div class="play e-${e} s${R.i%2}" data-act="storyNext">
         <div class="pbg">${fullbodyImg(k,{cls:'pfull'})}</div>
-        <div class="pbox">${face}<div><b>${u.icon?esc(PROFILE[k].name):'？？？'}<small>${esc(T[k].nm)}${u.expr?`・${EXPR_LABEL[e]}`:''}</small></b><p>「${esc(PROFILE[k].line)}」</p></div></div>
+        ${emo?`<span class="emote" aria-hidden="true">${emo}</span>`:''}
+        <div class="pbox">${face}<div><b>${u.icon?esc(PROFILE[k].name):'？？？'}<small>${esc(T[k].nm)}${u.expr?`・${EXPR_LABEL[e]}`:''}</small></b><p data-tw>「${esc(PROFILE[k].line)}」</p></div></div>
         <small class="ptap">タップで次へ(${R.i+1}/${ch.scene.length})</small></div>
         ${!u.expr?'<p class="muted center">表情はそのキャラを手に入れると解放されます</p>':''}`;
     }
@@ -1585,7 +1601,7 @@ function render(){
   const same=render.last===scr,openD=same?[...app.querySelectorAll('details')].map(d=>d.open):[],hx=same?[...app.querySelectorAll('.slides,.tabs')].map(e=>e.scrollLeft):[];
   app.innerHTML=h;render.last=scr;
   if(same){app.querySelectorAll('details').forEach((d,i)=>{if(openD[i])d.open=true});app.querySelectorAll('.slides,.tabs').forEach((e,i)=>{if(hx[i])e.scrollLeft=hx[i]})}
-  soundCheck();setupSlides();
+  soundCheck();setupSlides();setupTypewriter();
   if(keep){const i=document.getElementById(keep.id);if(i){i.value=keep.v;i.focus()}}
   updateClocks();
 }
@@ -1610,7 +1626,7 @@ async function metaAct(a,el){
   if(a==='charLine'){M.modal.e=el.dataset.e||null;render();return}
   if(a==='storyPlay'){const ch=+el.dataset.ch;if(!storyUnlocked(ch))return;M.story={ch,i:0};render();window.scrollTo(0,0);return}
   if(a==='storyBattle'){const ch=+el.dataset.ch;if(!storyUnlocked(ch))return;M.story=null;localNew({level:STORY_BATTLE[ch].lv,story:ch,name:STORY_BATTLE[ch].boss});S.screen='local';render();window.scrollTo(0,0);return}
-  if(a==='storyNext'){M.story.i++;render();return}
+  if(a==='storyNext'){if(TW.timer){TW.finish();return}M.story.i++;render();return}
   if(a==='storyClose'){M.story=null;render();return}
   if(a==='avIllus'){M.modal.illus=el.checked;render();return}
   if(a==='openCaps'||a==='skipGacha'){if(M.anim&&M.anim.results){const A=M.anim;sfxStop('gacha_lever');A.phase='open';if(heroChars(A).length)A.hero=0;render();sfx('capsule_open');if(A.kakutei&&!A.fanfare){A.fanfare=true;setTimeout(()=>sfx(A.kakutei==='LR'?'fanfare_lr':'fanfare_ssr'),250)}}return}
