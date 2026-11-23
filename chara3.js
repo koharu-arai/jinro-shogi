@@ -196,7 +196,7 @@ export function fullbodyImg(k, { cls = '', silhouetteIfLocked = true } = {}) {
   const src = u.lux && a.fullbodyLux ? a.fullbodyLux : a.fullbody;
   const locked = !u.full && silhouetteIfLocked;
   if (!locked && MOTION[k] && artStyle() === 'flat' && MOTION_CLS.includes(cls)) {
-    return `<span class="fullbody ${u.lux ? 'lux' : ''} ${cls}"><video class="fbvid" autoplay muted loop playsinline preload="auto" poster="${src}"><source src="${MOTION_BASE}/${k}.webm" type="video/webm"><source src="${MOTION_BASE}/${k}.mp4" type="video/mp4"></video></span>`;
+    return `<span class="fullbody ${u.lux ? 'lux' : ''} ${cls}"><video class="fbvid" autoplay muted loop playsinline preload="auto" poster="${src}"><source src="${MOTION_BASE}/${k}.webm" type="video/webm"><source src="${MOTION_BASE}/${k}.mp4" type="video/mp4"></video>${fxHTML(k)}</span>`;
   }
   const blink = !locked && !u.lux && a.blink && artStyle() !== 'flat' ? `<img class="blink" src="${a.blink}" alt="" loading="lazy" decoding="async" onload="this.classList.add('ok')" onerror="this.remove()">` : '';
   return `<span class="fullbody ${locked ? 'locked' : ''} ${u.lux ? 'lux' : ''} ${artStyle() === 'flat' ? 'flatanim' : ''} ${cls}">${lazyImg(src, PROFILE[k]?.name || k)}${blink}${locked ? '<span class="lockmark">？？？</span>' : fxHTML(k)}</span>`;

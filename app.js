@@ -624,6 +624,10 @@ function cpuTurn(){
 }
 async function cpuOver(){
   L.phase='over';L.sel=null;L.thinking=false;render();
+  if(L.cpu.stage){
+    if(L.G.winner===0)L.cpu.expRes=await clearStage(L.cpu.stage.id);
+    render();return;
+  }
   if(L.cpu.story!=null){
     if(L.G.winner===0)L.cpu.expRes=await storyClear(L.cpu.story);
     render();return;
@@ -639,11 +643,11 @@ async function cpuOver(){
   render();
 }
 async function cpuStartServer(){
-  const my=L;if(my.cpu.story!=null)return;
+  const my=L;if(my.cpu.story!=null||my.cpu.stage)return;
   try{const r=await rpc('jinro_cpu_start',{p_level:my.cpu.level});my.cpu.game=r.game;my.cpu.today=r.today}catch(e){my.cpu.game=null}
 }
 function renderLocal(){
-  if(L.phase==='rules')return`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 class="ttlh">${L.cpu?(L.cpu.story!=null?`メインストーリー対戦`:`CPU対戦・${CPU_LV[L.cpu.level].nm}`):'1台で対戦'}</h2></div>${L.cpu?(L.cpu.story!=null?`<div class="card"><b>${esc(STORY[L.cpu.story].title)} ― 相手は${esc(L.cpu.name)}</b><p class="muted">あなたが先手です。勝つとこの章をクリアできます。初回クリアで経験値+${L.cpu.story===STORY.length-1?300:100}がもらえます(負けたときの経験値やコインはありません)。何度でも挑戦できます。</p></div>`:`<div class="card"><b>勝つと ${CPU_LV[L.cpu.level].coin}コイン</b><p class="muted">あなたが先手です。コインは1日50枚まで、開始から20秒以上たって勝ったときにもらえます。経験値は勝つと+${EXP_GAIN.cpuWin[L.cpu.level]}、負けても+${EXP_GAIN.cpuLose}もらえます(戦績には入りません)。</p></div>`):''}${rulesCard(L.rules,!L.cpu,true)}<button class="btn orange" data-act="localStart">配置へ進む</button>${rulesHTML()}`;
+  if(L.phase==='rules')return`<div class="top"><button class="btn ghost small" data-act="home">戻る</button><h2 class="ttlh">${L.cpu?(L.cpu.story!=null||L.cpu.stage?`メインストーリー対戦`:`CPU対戦・${CPU_LV[L.cpu.level].nm}`):'1台で対戦'}</h2></div>${L.cpu?(L.cpu.stage?`<div class="card"><b>${esc(L.cpu.stage.label)} ― 相手は${esc(L.cpu.name)}</b><p class="muted">あなたが先手です。勝つとこのステージをクリアできます。初回クリアで経験値+${stageExp(L.cpu.stage.ci,L.cpu.stage.si)}がもらえます(負けたときの経験値やコインはありません)。何度でも挑戦できます。</p></div>`:L.cpu.story!=null?`<div class="card"><b>${esc(STORY[L.cpu.story].title)} ― 相手は${esc(L.cpu.name)}</b><p class="muted">あなたが先手です。勝つとこの章をクリアできます。初回クリアで経験値+${L.cpu.story===STORY.length-1?300:100}がもらえます(負けたときの経験値やコインはありません)。何度でも挑戦できます。</p></div>`:`<div class="card"><b>勝つと ${CPU_LV[L.cpu.level].coin}コイン</b><p class="muted">あなたが先手です。コインは1日50枚まで、開始から20秒以上たって勝ったときにもらえます。経験値は勝つと+${EXP_GAIN.cpuWin[L.cpu.level]}、負けても+${EXP_GAIN.cpuLose}もらえます(戦績には入りません)。</p></div>`):''}${rulesCard(L.rules,!L.cpu,true)}<button class="btn orange" data-act="localStart">配置へ進む</button>${rulesHTML()}`;
   if(L.phase==='cover'){
     const p=L.cover.p,setup=L.cover.next==='setup';
     return`<div class="cover"><h2>${NAME[p]}の番</h2><p>${setup?`${NAME[p]}が駒の配置を決めます。相手に画面を見せないでください。`:`スマホを${NAME[p]}に渡してください。`}</p><button class="btn orange" data-act="uncover">${NAME[p]}です。画面を開く</button><button class="btn ghost small" data-act="home">ホームに戻る</button></div>`;
@@ -655,10 +659,10 @@ function renderLocal(){
   }
   const G=L.G;
   if(L.phase==='over'){
-    const cr=L.cpu,rw=(cr&&cr.story==null&&G.winner===0?(cr.reward!=null?`<div class="card reward"><b>${cr.reward>0?`+${cr.reward}コイン獲得！`:'今日のCPU戦コインは上限(50枚)に達しました'}</b><small class="muted">今日のCPU戦 ${cr.today??0}/50コイン</small></div>`:cr.rewardErr?`<p class="muted">${esc(cr.rewardErr==='開始から20秒以上たってから勝つとコインがもらえます。'?cr.rewardErr:'コインは受け取れませんでした('+cr.rewardErr+')')}</p>`:cr.game?'<p class="muted">コインを受け取っています…</p>':'<p class="muted">名前を決めてオンラインにつながると、勝ったときにコインがもらえます。</p>'):'')+(cr&&cr.expRes?expCard(cr.expRes,cr.story!=null?'ストーリークリアの経験値':'CPU戦の経験値'):'');
+    const cr=L.cpu,rw=(cr&&cr.story==null&&!cr.stage&&G.winner===0?(cr.reward!=null?`<div class="card reward"><b>${cr.reward>0?`+${cr.reward}コイン獲得！`:'今日のCPU戦コインは上限(50枚)に達しました'}</b><small class="muted">今日のCPU戦 ${cr.today??0}/50コイン</small></div>`:cr.rewardErr?`<p class="muted">${esc(cr.rewardErr==='開始から20秒以上たってから勝つとコインがもらえます。'?cr.rewardErr:'コインは受け取れませんでした('+cr.rewardErr+')')}</p>`:cr.game?'<p class="muted">コインを受け取っています…</p>':'<p class="muted">名前を決めてオンラインにつながると、勝ったときにコインがもらえます。</p>'):'')+(cr&&cr.expRes?expCard(cr.expRes,(cr.story!=null||cr.stage)?'ストーリークリアの経験値':'CPU戦の経験値'):'');
     if(cr&&!L.c3)L.c3=charaEnd(G,0,'cpu-'+(L.c3key||(L.c3key=Date.now())));
-    return`<section class="hero"><h1 class="over-h">${cr?(cr.story!=null?(G.winner===0?`${esc(cr.name)}を倒した！`:`${esc(cr.name)}に負けた…`):(G.winner===0?'あなたの勝ち！':'CPUの勝ち')):NAME[G.winner]+'の勝ち'}</h1><p>${esc(G.reason)}。すべての駒を公開しています。</p></section>${rw}${cr&&cr.story!=null&&G.winner===0?'<div class="card reward"><b>章をクリアしました！</b><p class="muted">物語の章一覧で、次の章が解放されています。</p></div>':''}${cr?unlockNotice(L.c3,G.decks?.[0]):''}
-      ${boardHTML(G,0,{reveal:true,looks:localLooks()})}<div class="row"><button class="btn orange" data-act="localAgain">もう一度遊ぶ</button>${cr&&cr.story!=null?'<button class="btn ghost" data-act="go" data-to="story">物語へ戻る</button>':''}<button class="btn ghost" data-act="home">ホームへ</button></div>`;
+    return`<section class="hero"><h1 class="over-h">${cr?((cr.story!=null||cr.stage)?(G.winner===0?`${esc(cr.name)}を倒した！`:`${esc(cr.name)}に負けた…`):(G.winner===0?'あなたの勝ち！':'CPUの勝ち')):NAME[G.winner]+'の勝ち'}</h1><p>${esc(G.reason)}。すべての駒を公開しています。</p></section>${rw}${cr&&cr.story!=null&&G.winner===0?'<div class="card reward"><b>章をクリアしました！</b><p class="muted">物語の章一覧で、次の章が解放されています。</p></div>':''}${cr&&cr.stage&&G.winner===0?'<div class="card reward"><b>ステージをクリアしました！</b><p class="muted">物語の章一覧で、次のステージが解放されています。</p></div>':''}${cr?unlockNotice(L.c3,G.decks?.[0]):''}
+      ${boardHTML(G,0,{reveal:true,looks:localLooks()})}<div class="row"><button class="btn orange" data-act="localAgain">もう一度遊ぶ</button>${cr&&(cr.story!=null||cr.stage)?'<button class="btn ghost" data-act="go" data-to="story">物語へ戻る</button>':''}<button class="btn ghost" data-act="home">ホームへ</button></div>`;
   }
   const v=L.cpu?0:G.turn,op=1-v,play=L.phase==='play'&&!(L.cpu&&G.turn===1);
   const again=!play&&L.out&&L.out.same;
@@ -684,7 +688,7 @@ function localAct(a,el){
   else if(a==='pick'){L.msg=pickInto(L.setup[L.setupP],L.sel?.i,el.dataset.t);if(!L.msg)L.sel=null}
   else if(a==='preset'){L.setup[L.setupP]=PRESETS[+el.dataset.k].a.slice();L.sel=null}
   else if(a==='shuffle'){shuffle(L.setup[L.setupP]);L.sel=null}
-  else if(a==='confirm'&&L.cpu){L.sel=null;L.msg='';L.setup[0]=fitDeck(L.setup[0],ownedChars());L.setup[1]=L.cpu.story!=null?fitDeck(STORY_BATTLE[L.cpu.story].deck.slice(),L.rules.chars?NEWC:[]):cpuDeck(L.cpu.level,L.rules);L.G=newGame(L.setup,L.rules);L.notice='対局開始。あなたが先手です。';L.noticeAlert=false;L.phase='play';lastT=null}
+  else if(a==='confirm'&&L.cpu){L.sel=null;L.msg='';L.setup[0]=fitDeck(L.setup[0],ownedChars());L.setup[1]=L.cpu.stage?fitDeck(L.cpu.stage.deck.slice(),L.rules.chars?NEWC:[]):L.cpu.story!=null?fitDeck(STORY_BATTLE[L.cpu.story].deck.slice(),L.rules.chars?NEWC:[]):cpuDeck(L.cpu.level,L.rules);L.G=newGame(L.setup,L.rules);L.notice='対局開始。あなたが先手です。';L.noticeAlert=false;L.phase='play';lastT=null}
   else if(a==='confirm'){L.sel=null;L.msg='';if(L.setupP===0){L.setupP=1;L.cover={p:1,next:'setup'}}else{L.G=newGame(L.setup,L.rules);L.notice='対局開始。先手から指します。';L.noticeAlert=false;L.cover={p:0,next:'play'}}L.phase='cover'}
   else if(a==='hand'){const i=+el.dataset.i;L.sel=L.sel&&L.sel.hand===i?null:{hand:i}}
   else if(a==='bite'){if(L.sel)L.sel={r:L.sel.r,c:L.sel.c,ab:!L.sel.ab}}
@@ -699,7 +703,7 @@ function localAct(a,el){
   }
   else if(a==='pass'){const G=L.G;const n=nextTurn(G);const same=n===G.turn;G.turn=n;L.notice=same?'てるてるの力で、もう1手続けて指せます(移動だけ。駒は取れません)。':L.out.note;L.noticeAlert=!!L.out.alert;if(same){L.phase='play'}else{L.cover={p:G.turn,next:'play'};L.phase='cover'}}
   else if(a==='resign'){if(L.resignArm){if(L.cpu){L.G.winner=1;L.G.reason='あなたが投了しました';cpuOver()}else{L.G.winner=1-L.G.turn;L.G.reason=`${NAME[L.G.turn]}が投了しました`;L.phase='over'}}else L.resignArm=true}
-  else if(a==='localAgain')localNew(L.cpu?{level:L.cpu.level,story:L.cpu.story,name:L.cpu.name}:null);
+  else if(a==='localAgain')localNew(L.cpu?{level:L.cpu.level,story:L.cpu.story,name:L.cpu.name,stage:L.cpu.stage}:null);
 }
 
 /* ===== online mode (Supabase) ===== */
@@ -1065,7 +1069,7 @@ function renderHome(){
     <button class="feature story-feat" data-act="go" data-to="story">
       <span class="ftag">メインストーリー</span>
       <b class="fname">物語『月夜の盤上』</b>
-      <small class="fdesc">対戦で勝ち進む全${STORY.length}章の物語。クリアすると次の章が解放され、初回クリアで経験値がもらえます。</small>
+      <small class="fdesc">対戦で勝ち進む全${STORY.length+STORY_STAGES.length}章の物語(第4章からはステージ制)。クリアすると次が解放され、初回クリアで経験値がもらえます。</small>
       <span class="fgo">物語へ ›</span>
     </button>
     <button class="feature b-${bk}" data-act="go" data-to="gacha">
@@ -1517,11 +1521,12 @@ const STORY_BATTLE=[
   {lv:'hard',  boss:'呪いの影',   deck:['wolf','fox','vampire','cursed','thief','king']},
 ];
 const storyStage=ch=>'ch'+(ch+1);
-const storyCleared=ch=>!!(M.st?.story_clears?.includes(storyStage(ch))||store.get('jinro-story-'+storyStage(ch)));
+const stageDone=id=>!!(M.st?.story_clears?.includes(id)||store.get('jinro-story-'+id));
+const storyCleared=ch=>stageDone(storyStage(ch));
 const storyUnlocked=ch=>ch===0||storyCleared(ch-1);
 // ストーリー対戦に勝ったら、初回だけサーバー経由で経験値が入る
-async function storyClear(ch){
-  const stage=storyStage(ch),key=`jinro-story-${stage}`;
+async function clearStage(stage){
+  const key=`jinro-story-${stage}`;
   if(P.storyClear.has(stage)||store.get(key))return null;
   P.storyClear.add(stage);
   try{
@@ -1530,7 +1535,55 @@ async function storyClear(ch){
     return r;
   }catch(e){P.storyClear.delete(stage);return null}
 }
+const storyClear=ch=>clearStage(storyStage(ch));
+
+/* 続編(第4〜6章)はステージ制: 各章ステージ3+ボス戦。新キャラの名前は図鑑PROFILEに合わせた(探偵=シャール/墓守=モルグ/魔女=リリス)。
+   foe.deck は対戦で使える駒だけ([前列3枚, 後列3枚]・王様は後列) */
+const STORY_STAGES=[
+  { title:'第四章「月影に消えた記憶」', stages:[
+    { name:'静寂の王都', chars:['king','knight','villager','seer'], foe:{name:'ミーア',lv:'easy',deck:['wolf','villager','seer','hunter','knight','king']},
+      text:'月の欠片が戻ってから数週間。ルナリアには平穏な日々が戻っていた。しかし、満月の夜になると、王都の住人たちが奇妙な夢を見るようになる。夢の中では、誰もが自分の知らない記憶を語り、目覚めるとその内容を忘れていた。王レオンは異変の調査を命じる。ノワールは月を見上げ、静かに告げた。「これは呪いではありません。何かが、記憶を集めているのです」' },
+    { name:'記憶を追う探偵', chars:['hunter','tough','detective'], foe:{name:'探偵シャール',lv:'normal',deck:['wolf','seer','medium','hunter','knight','king']},
+      text:'異変の原因を探るため、カイトとゴウは王都で名を知られる探偵シャールを訪ねた。彼は月夜にだけ現れる足跡と、住人たちが失った記憶の共通点を調べていた。やがて彼は、一つの奇妙な事実に気づく。記憶を失った者は皆、古い神社の方向を指していたのだ。「犯人は人間ではない。だが、確かに意思を持っている」。シャールは盤上に証拠を並べた。' },
+    { name:'森に住む魔女', chars:['fox','teru','vampire','witch'], foe:{name:'魔女リリス',lv:'normal',deck:['wolf','fox','nekomata','seer','knight','king']},
+      text:'森の奥深く、月光の届かぬ小屋に魔女リリスが暮らしていた。彼女は満ちた月の力が強すぎるため、周囲の記憶を吸い寄せているのだと語る。ヒナの晴れを呼ぶ力にも異変が現れ、空を晴らすたびに誰かの記憶が消えていくという。リリスは古い魔導書を開き、百年前にも同じ現象があったことを明かした。「月は満ちた。しかし、まだ何かが足りないのよ」' },
+    { name:'記憶を喰らう影', boss:true, chars:['king','seer','medium','detective','witch'], foe:{name:'記憶喰らいの影',lv:'hard',deck:['wolf','fox','vampire','cursed','medium','king']},
+      text:'神社の地下に隠された祭壇で、一行は記憶を喰らう影と対峙する。それは人の姿を持たず、失われた記憶を寄せ集めた存在だった。ユエは霊媒の力で、その正体が百年前の盤上儀式で忘れ去られた参加者たちの記憶であると見抜く。レオンたちは盤上儀式を開始し、影を打ち破る。だが消えゆく影は、最後にこう告げた。「月の裏側には、まだ誰も知らぬ王がいる」' },
+  ]},
+  { title:'第五章「月裏の王」', stages:[
+    { name:'忘れられた墓標', chars:['knight','hunter','gravekeeper','wolf'], foe:{name:'墓守モルグ',lv:'normal',deck:['wolf','medium','villager','hunter','tough','king']},
+      text:'記憶喰らいの影が消えた後、王都の外れにある古い墓地で異変が起きた。墓石に刻まれた名前が、次々と消えていたのである。調査に向かったセラとカイトは、墓守モルグと出会う。彼は百年前の儀式に関わった者たちの墓を守り続けていた。「彼らは死んだのではない。存在そのものを、この世から消されたのだ」。モルグは墓地の奥にある封印された扉を指さした。' },
+    { name:'裏切りの予言', chars:['king','seer','fox','cursed'], foe:{name:'ノワール',lv:'normal',deck:['wolf','seer','fox','nekomata','knight','king']},
+      text:'ノワールは新たな予言を試みる。しかし水晶に映ったのは、玉座に座るレオンと、その背後に立つもう一人の王の姿だった。タマモはそれを見て、月の欠片には表と裏、二つの力が存在すると語る。百年前、月の力を独占しようとした者たちは、裏側の王を封じたのだという。ルカは砕けた鎖の跡に痛みを感じながら呟いた。「封印が、解けかけている……」' },
+    { name:'月なき城', chars:['vampire','tough','thief','teru'], foe:{name:'ヴァレン',lv:'hard',deck:['wolf','vampire','cursed','seer','tough','king']},
+      text:'一行は月の裏側へ通じるとされる廃城に辿り着いた。そこは月明かりが一切届かず、時間さえ止まったような場所だった。ヴァレンは百年前、この城の存在を知っていたと明かす。城の奥には、月の力を奪われた者たちの姿があった。レイヴンはヒナを守るように前へ出る。「もう誰かを犠牲にしてまで、月を守る必要はない」。その言葉に応えるように、城門が開いた。' },
+    { name:'裏月の騎士', boss:true, chars:['king','knight','wolf','cursed','gravekeeper'], foe:{name:'裏月の騎士',lv:'hard',deck:['wolf','knight','tough','fox','thief','king']},
+      text:'城の最奥で待ち受けていたのは、黒い鎧をまとった裏月の騎士だった。彼は百年前、月の欠片の力を二つに分けようとした王の忠臣であり、封印の中で長い時を過ごしていた。彼は月の表側だけを守る現在の王国を偽りだと断じ、すべてを裏返すことを望んでいた。レオンは剣を構える。「過去を正すために、今を壊すことは許さない」。激闘の末、騎士は敗れる。しかし、彼の鎧から黒い月が現れた。' },
+  ]},
+  { title:'第六章「永遠の月明かり」', stages:[
+    { name:'黒い月の夜', chars:['king','villager','medium','teru'], foe:{name:'ミーア',lv:'normal',deck:['wolf','villager','teru','seer','knight','king']},
+      text:'黒い月が空に浮かんだ夜、王国全土から月明かりが消えた。人々は不安に包まれ、かつて眠っていた魔力が暴れ始める。ヒナは自らの力で空を晴らそうとするが、黒い月の力に押し返されてしまう。ユエは霊媒の儀式を通じて、黒い月が単なる敵ではなく、長年封印されてきた月の裏側そのものだと知る。レオンは全員を招集し、最後の盤上儀式を宣言した。' },
+    { name:'それぞれの願い', chars:['hunter','tough','detective','witch','gravekeeper'], foe:{name:'探偵シャール',lv:'hard',deck:['wolf','seer','medium','tough','knight','king']},
+      text:'最後の儀式を前に、仲間たちはそれぞれの役目を果たすため動き出した。シャールは黒い月の弱点を探り、リリスは封印を解くための魔法を準備する。モルグは墓地に眠る者たちの記憶を解放し、カイトとゴウは王都を守るために戦う。彼らが見つけた答えは一つだった。黒い月を倒すだけでは、再び同じ悲劇が起きる。必要なのは、表と裏の力を一つにすることだった。' },
+    { name:'最後の選択', chars:['thief','teru','fox','vampire','seer'], foe:{name:'レイヴン',lv:'hard',deck:['wolf','thief','fox','nekomata','hunter','king']},
+      text:'黒い月の力を抑えるには、月の欠片とヒナの力を共鳴させなければならなかった。しかし、その儀式にはヒナ自身が月の中心に立つ必要がある。レイヴンは妹を危険にさらすことを拒む。タマモは、選ばれることと自ら選ぶことは違うと告げた。ヒナは兄の手を握り、静かに微笑む。「今度は私が、みんなの明日を晴らしたい」。レイヴンは涙をこらえ、妹の決意を受け入れた。' },
+    { name:'月の裏側の王', boss:true, chars:['king','knight','wolf','cursed','medium','teru','thief','fox'], foe:{name:'月の裏側の王',lv:'hard',deck:['wolf','vampire','teru','fox','cursed','king']},
+      text:'黒い月の中心で、一行は月の裏側の王と対峙する。彼はかつて月の力を分けられ、忘れ去られたもう一つの月の意思だった。王は表側の月を憎み、すべてを闇に戻そうとする。レオンたちは最後の盤上儀式に挑む。ガロは仲間を守り、セラは王の前に立ち、ルカは過去の鎖を断ち切る。ヒナの光が黒い月を包み、レイヴンが欠片を掲げた。二つの月は一つとなり、王の憎しみは静かに消えていった。夜明けとともに、ルナリアには再び穏やかな月明かりが戻った。' },
+  ]},
+];
+const stageId=(ci,si)=>`s${ci+4}-${STORY_STAGES[ci].stages[si].boss?'boss':si+1}`;
+const stageCleared=(ci,si)=>stageDone(stageId(ci,si));
+const stageChapterUnlocked=ci=>ci===0?storyCleared(2):stageCleared(ci-1,3);
+const stageUnlocked=(ci,si)=>stageChapterUnlocked(ci)&&(si===0||stageCleared(ci,si-1));
+const stageExp=(ci,si)=>STORY_STAGES[ci].stages[si].boss?(ci===2?300:120):40;
 function renderStory(){
+  const SV=M.stageView;
+  if(SV){
+    const chap=STORY_STAGES[SV.ci],sg=chap.stages[SV.si],cl=stageCleared(SV.ci,SV.si);
+    return`${backBar(esc(chap.title),'story')}<div class="card story"><b>${sg.boss?'ボス戦':`ステージ${SV.si+1}`}「${esc(sg.name)}」</b><div class="scast">${sg.chars.map(k=>unlocks(k).icon?faceIcon(k,iconSvg(k),{cls:'mini'}):`<span class="face mini sil">${iconSvg(k)}</span>`).join('')}</div><p>${esc(sg.text)}</p></div>
+      ${cl?'<div class="card reward"><b>このステージはクリア済みです</b></div>':`<div class="card"><b>このステージの対戦</b><p class="muted">相手は${esc(sg.foe.name)}。勝つとクリアでき、初回クリアで経験値+${stageExp(SV.ci,SV.si)}がもらえます。</p></div>`}
+      <div class="row center"><button class="btn orange" data-act="stageBattle" data-ci="${SV.ci}" data-si="${SV.si}">⚔️ ${cl?'もう一度対戦する':'対戦する'}</button><button class="btn ghost" data-act="stageClose">章の一覧へ</button></div>`;
+  }
   const R=M.story;
   if(R){
     const ch=STORY[R.ch],beat=R.i<ch.scene.length?ch.scene[R.i]:null;
@@ -1553,6 +1606,8 @@ function renderStory(){
     <div class="card story"><b>世界観</b>${WORLD.split('\n').map(x=>`<p>${esc(x)}</p>`).join('')}</div>
     ${STORY.map((c,i)=>{const un=storyUnlocked(i),cl=storyCleared(i);return`<div class="card story${un?'':' locked'}"><b>${esc(c.title)}</b>${cl?'<span class="badge turn">クリア済み</span>':un?'':'<span class="badge">🔒 ロック中</span>'}<div class="scast">${c.scene.map(([k])=>unlocks(k).icon?faceIcon(k,iconSvg(k),{cls:'mini'}):`<span class="face mini sil">${iconSvg(k)}</span>`).join('')}</div>
       ${un?`<div class="row"><button class="btn ghost small" data-act="storyPlay" data-ch="${i}">▶ 物語を読む</button><button class="btn orange small" data-act="storyBattle" data-ch="${i}">⚔️ 対戦する（相手：${esc(STORY_BATTLE[i].boss)}）</button></div>`:'<p class="muted">前の章の対戦に勝つと解放されます。</p>'}</div>`}).join('')}
+    ${STORY_STAGES.map((chap,ci)=>{const cun=stageChapterUnlocked(ci);return`<div class="card story${cun?'':' locked'}"><b>${esc(chap.title)}</b>${cun?'':'<span class="badge">🔒 ロック中</span>'}<p class="muted">ステージ制の続編です。ステージを順にクリアすると次が解放されます。</p>
+      ${cun?chap.stages.map((sg,si)=>{const un=stageUnlocked(ci,si),cl=stageCleared(ci,si);return`<div class="frow"><div class="fmain"><b>${sg.boss?'ボス戦':`ステージ${si+1}`}「${esc(sg.name)}」</b>${cl?'<span class="badge turn">クリア済み</span>':un?'':'<span class="badge">🔒</span>'}</div>${un?`<div class="row"><button class="btn ghost small" data-act="stagePlay" data-ci="${ci}" data-si="${si}">▶ 読む</button><button class="btn orange small" data-act="stageBattle" data-ci="${ci}" data-si="${si}">⚔️ 対戦（${esc(sg.foe.name)}）</button></div>`:''}</div>`}).join(''):'<p class="muted">前の章をクリアすると解放されます。</p>'}</div>`}).join('')}
     <p class="muted">章は順番に解放されます。対戦に勝つとクリアで、次の章が見られるようになります。登場キャラの顔や表情は、図鑑で解放するとストーリーにも出てきます。</p>`;
 }
 
@@ -1606,7 +1661,7 @@ function render(){
   updateClocks();
 }
 async function metaAct(a,el){
-  if(a==='go'){const to=el.dataset.to;if(to==='story')M.story=null;M.modal=null;M.err='';if(M.anim&&M.anim.phase==='open')M.anim=null;if(to!=='home'&&to!=='battle'&&!myName()){S.screen='home';render();return}S.screen=to;render();window.scrollTo(0,0);if(to!=='home')refreshState();return}
+  if(a==='go'){const to=el.dataset.to;if(to==='story'){M.story=null;M.stageView=null}M.modal=null;M.err='';if(M.anim&&M.anim.phase==='open')M.anim=null;if(to!=='home'&&to!=='battle'&&!myName()){S.screen='home';render();return}S.screen=to;render();window.scrollTo(0,0);if(to!=='home')refreshState();return}
   if(a==='saveName')return saveName(document.getElementById('pname')?.value);
   if(a==='editName'){P.editing=true;render();return}
   if(a==='cancelName'){P.editing=false;render();return}
@@ -1626,6 +1681,9 @@ async function metaAct(a,el){
   if(a==='charLine'){M.modal.e=el.dataset.e||null;render();return}
   if(a==='storyPlay'){const ch=+el.dataset.ch;if(!storyUnlocked(ch))return;M.story={ch,i:0};render();window.scrollTo(0,0);return}
   if(a==='storyBattle'){const ch=+el.dataset.ch;if(!storyUnlocked(ch))return;M.story=null;localNew({level:STORY_BATTLE[ch].lv,story:ch,name:STORY_BATTLE[ch].boss});S.screen='local';render();window.scrollTo(0,0);return}
+  if(a==='stagePlay'){const ci=+el.dataset.ci,si=+el.dataset.si;if(!stageUnlocked(ci,si))return;M.stageView={ci,si};render();window.scrollTo(0,0);return}
+  if(a==='stageClose'){M.stageView=null;render();return}
+  if(a==='stageBattle'){const ci=+el.dataset.ci,si=+el.dataset.si;if(!stageUnlocked(ci,si))return;const sg=STORY_STAGES[ci].stages[si];M.stageView=null;M.story=null;localNew({level:sg.foe.lv,name:sg.foe.name,stage:{id:stageId(ci,si),ci,si,deck:sg.foe.deck,label:`${STORY_STAGES[ci].title} ${sg.boss?'ボス戦':`ステージ${si+1}`}「${sg.name}」`}});S.screen='local';render();window.scrollTo(0,0);return}
   if(a==='storyNext'){if(TW.timer){TW.finish();return}M.story.i++;render();return}
   if(a==='storyClose'){M.story=null;render();return}
   if(a==='avIllus'){M.modal.illus=el.checked;render();return}
@@ -1644,7 +1702,7 @@ async function metaAct(a,el){
   if(a==='inviteFriend')return inviteFriend(el.dataset.uid);
   if(a==='acceptInvite'){S.screen='online';render();return joinRoom(el.dataset.code)}
 }
-const META=new Set(['artTap','zukan','heroNext','heroDone','charLine','storyPlay','storyNext','storyClose','storyBattle','avIllus','charInfo','artStyle','gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
+const META=new Set(['artTap','zukan','heroNext','heroDone','charLine','storyPlay','storyNext','storyClose','storyBattle','stagePlay','stageBattle','stageClose','avIllus','charInfo','artStyle','gpick','mtab','claimAch','openAvatar','avChar','avBg','saveAvatar','openCaps','skipGacha','closeGacha','exchange','go','saveName','editName','cancelName','closeModal','openLogin','claimLogin','pull','claimMission','tab','equip','copyFc','addFriend','respond','inviteFriend','acceptInvite']);
 document.getElementById('app').addEventListener('click',e=>{
   const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const a=el.dataset.act;
   if(a==='home'){const wasGame=S.screen==='online'||S.screen==='local';if(S.screen==='online')leaveRoom(true);S.screen=wasGame?'battle':'home';render();refreshState();window.scrollTo(0,0);return}
