@@ -945,3 +945,7 @@ input,textarea,.code{-webkit-user-select:text;user-select:text;-webkit-touch-cal
 /* ガチャで出た瞬間:背景つきの絵でも光の筋が見えるよう、筋を絵の上に重ね、絵が現れたら薄くする */
 .ghero.reveal .rays{z-index:2;mix-blend-mode:screen;animation:raysIn .6s .15s both,raysSpin 14s linear infinite,raysDim .7s 1.05s forwards}
 @keyframes raysDim{to{opacity:.16}}
+/* 動画(本格モーション)のキャラでも、粒子とガチャのシルエット演出が出るように */
+.fullbody .fbvid~.fx{opacity:1}
+.ghero.reveal .hbg .fullbody video{animation:silReveal 1.5s cubic-bezier(.3,.8,.3,1) both}
+@media (prefers-reduced-motion: reduce){.ghero.reveal .hbg .fullbody video{animation:none!important}}
