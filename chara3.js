@@ -184,7 +184,7 @@ export function faceIcon(k, fallbackHtml, { cls = '', force = null } = {}) {
 
 /* 本格モーション(動画)があるキャラ。大きな全身表示(図鑑詳細・ガチャ演出・ストーリー)でのみ動画にする。
    動画ファイルは Supabase Storage の公開バケット motion に置く(リポジトリにはバイナリを入れない) */
-const MOTION = { nekomata: 1, fox: 1, thief: 1, vampire: 1, cursed: 1, king: 1, wolf: 1, knight: 1, seer: 1, medium: 1, teru: 1, hunter: 1 };
+const MOTION = { nekomata: 1, fox: 1, thief: 1, vampire: 1, cursed: 1, king: 1, wolf: 1, knight: 1, seer: 1, medium: 1, teru: 1, hunter: 1, villager: 1, detective: 1, witch: 1, gravekeeper: 1, ninja: 1 };
 const MOTION_CLS = ['big', 'hfull', 'pfull'];
 const MOTION_BASE = 'https://raworybgvaxzfmsueeoz.supabase.co/storage/v1/object/public/motion';
 
